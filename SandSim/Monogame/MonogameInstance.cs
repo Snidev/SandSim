@@ -20,7 +20,7 @@ public class MonogameInstance : Game
         GraphicsDevice.Clear(Color.CornflowerBlue);
         
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        _spriteBatch.Draw(_texture, Vector2.Zero, Color.White);
+        _spriteBatch.Draw(_texture, new Rectangle(0, 0, 400, 400), Color.White);
         _spriteBatch.End();
         
         base.Draw(gameTime);
@@ -28,6 +28,8 @@ public class MonogameInstance : Game
 
     protected override void Update(GameTime gameTime)
     {
+        _world.Update();
+        
         for (int x = 0; x < _world.Width; x++)
         for (int y = 0; y < _world.Height; y++)
         {
