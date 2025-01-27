@@ -16,6 +16,8 @@ public class MonogameInstance : Game
     private const int Width = 100;
     private const int Height = 100;
     private const int Magnification = 4;
+
+    private int _pen = 1;
     
     protected override void Draw(GameTime gameTime)
     {
@@ -40,14 +42,28 @@ public class MonogameInstance : Game
 
             if (localX >= 0 && localX < _world.Width && localY >= 0 && localY < _world.Height)
             {
-                _world.SetDot(localX, localY, 1);
+                _world.SetDot(localX, localY, _pen);
             }
         }
+        
+        KeyboardState keyboard = Keyboard.GetState();
+        if (keyboard.IsKeyDown(Keys.D1))
+            _pen = 1;
+        if (keyboard.IsKeyDown(Keys.D2))
+            _pen = 2;
+        if (keyboard.IsKeyDown(Keys.D0))
+            _pen = 0;
         
         for (int x = 0; x < _world.Width; x++)
         for (int y = 0; y < _world.Height; y++)
         {
-            _rawTexture[Width * y + x] = _world.GetDot(x, y) == 1 ? Color.Yellow : Color.Black;
+            int dot = _world.GetDot(x, y);
+            _rawTexture[Width * y + x] = dot switch
+            {
+                1 => Color.Yellow,
+                2 => Color.Aqua,
+                _ => Color.Black
+            };
         }
         
         _texture.SetData(_rawTexture);
