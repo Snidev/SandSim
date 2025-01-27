@@ -73,16 +73,7 @@ public class World(int width, int height)
             
             int curDot = GetDotId(x, y);
 
-            if (curDot == 1) // Sand, falls down
-            {
-                _sandProcessor.Update(this, x, y, curDot);
-                continue;
-            }
-
-            if (curDot == 2) // Water, spreads and fills containers. Close to sand, but also tries to move horizontally when grounded
-            {
-                _fluidProcessor.Update(this, x, y, curDot);
-            }
+            _dotTypes[curDot].Processor?.Update(this, x, y, curDot);
         }
     }
 }
