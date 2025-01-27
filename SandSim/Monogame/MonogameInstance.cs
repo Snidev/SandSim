@@ -76,6 +76,7 @@ public class MonogameInstance : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
 
         _world.SetDot(50, 50, 1);
+        IsMouseVisible = true;
         
         base.Initialize();
     }
