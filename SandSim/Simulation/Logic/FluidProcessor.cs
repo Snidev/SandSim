@@ -1,17 +1,18 @@
 namespace SandSim.Simulation.Logic;
 
-public class WaterProcessor : DotProcessor
+public class FluidProcessor : DotProcessor
 {
+    public float Viscosity = 1f;
+    
     public override void Update(World world, int x, int y, int dotType)
-    {
-        const float viscosity = 1f;        
+    {        
         if (world.IsInBounds(x, y + 1) && world.IsEmpty(x, y + 1))
         {
             world.MoveDot(x, y, x, y + 1);
             return;
         }
 
-        if (world.Rng.NextDouble() > viscosity)
+        if (world.Rng.NextDouble() > Viscosity)
             return;
         
         Span<int> xValues = [x + 1, x - 1];
