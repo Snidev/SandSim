@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using SandSim.Simulation;
 
 namespace SandSim.Monogame;
@@ -14,13 +15,14 @@ public class MonogameInstance : Game
 
     private const int Width = 100;
     private const int Height = 100;
+    private const int Magnification = 4;
     
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Color.CornflowerBlue);
         
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        _spriteBatch.Draw(_texture, new Rectangle(0, 0, 400, 400), Color.White);
+        _spriteBatch.Draw(_texture, new Rectangle(0, 0, Width * Magnification, Height * Magnification), Color.White);
         _spriteBatch.End();
         
         base.Draw(gameTime);
@@ -29,6 +31,18 @@ public class MonogameInstance : Game
     protected override void Update(GameTime gameTime)
     {
         _world.Update();
+        
+        MouseState mouse = Mouse.GetState();
+        if (mouse.LeftButton == ButtonState.Pressed)
+        {
+            int localX = mouse.X / Magnification;
+            int localY = mouse.Y / Magnification;
+
+            if (localX >= 0 && localX < _world.Width && localY >= 0 && localY < _world.Height)
+            {
+                _world.SetDot(localX, localY, 1);
+            }
+        }
         
         for (int x = 0; x < _world.Width; x++)
         for (int y = 0; y < _world.Height; y++)
