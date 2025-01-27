@@ -4,6 +4,7 @@ public class World(int width, int height)
 {
     public readonly int Width = width;
     public readonly int Height = height;
+    public readonly Random Rng = new();
 
     // Quick and dirty solution, optimize later
     private readonly HashSet<(int, int)> _noUpdate = new();
@@ -14,6 +15,12 @@ public class World(int width, int height)
     public int GetDot(int x, int y) => _dots[x, y];
     
     public void SetDot(int x, int y, int value) => _dots[x, y] = value;
+    
+    public bool IsInBounds(int x, int y) => x >= 0 && x < Width && y >= 0 && y < Height;
+    
+    public bool IsEmpty(int x, int y) => _dots[x, y] == 0;
+    
+    public void PauseDot(int x, int y) => _noUpdate.Add((x, y));
     
     public void Update()
     {
