@@ -7,6 +7,7 @@ public class World(int width, int height)
 
     // Quick and dirty solution, optimize later
     private readonly HashSet<(int, int)> _noUpdate = new();
+    private readonly Random _rng = new();
     
     private int[,] _dots = new int[width, height];
 
@@ -32,8 +33,18 @@ public class World(int width, int height)
                     continue;
                 
                 int newX = x, newY = y + 1;
-                if (GetDot(newX, newY) != 0)
-                    continue;
+                if (GetDot(x, newY) != 0)
+                {
+                    int xOffset = _rng.Next(0, 2) == 1 ? 1 : -1;
+                    int xPos = x + xOffset;
+                    int xNeg = x - xOffset;
+                    if (xPos >= 0 && xPos < Width && GetDot(xPos, newY) == 0)
+                        newX += xOffset;
+                    else if (xNeg >= 0 && xNeg < Width && GetDot(xNeg, newY) == 0)
+                        newX -= xOffset;
+                    else
+                        continue;
+                }
                 
                 SetDot(x, y, 0);
                 SetDot(newX, newY, 1);
