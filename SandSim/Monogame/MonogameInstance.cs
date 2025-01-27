@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SandSim.Simulation;
+using SandSim.Simulation.Logic;
 
 namespace SandSim.Monogame;
 
@@ -17,7 +18,7 @@ public class MonogameInstance : Game
     private const int Height = 100;
     private const int Magnification = 4;
 
-    private int _pen = 1;
+    private string _pen = "sand";
     
     protected override void Draw(GameTime gameTime)
     {
@@ -48,20 +49,20 @@ public class MonogameInstance : Game
         
         KeyboardState keyboard = Keyboard.GetState();
         if (keyboard.IsKeyDown(Keys.D1))
-            _pen = 1;
+            _pen = "sand";
         if (keyboard.IsKeyDown(Keys.D2))
-            _pen = 2;
+            _pen = "water";
         if (keyboard.IsKeyDown(Keys.D0))
-            _pen = 0;
+            _pen = "air";
         
         for (int x = 0; x < _world.Width; x++)
         for (int y = 0; y < _world.Height; y++)
         {
-            int dot = _world.GetDot(x, y);
+            string dot = _world.GetDot(x, y).Name;
             _rawTexture[Width * y + x] = dot switch
             {
-                1 => Color.Yellow,
-                2 => Color.Aqua,
+                "sand" => Color.Yellow,
+                "water" => Color.Aqua,
                 _ => Color.Black
             };
         }
@@ -74,8 +75,6 @@ public class MonogameInstance : Game
     protected override void Initialize()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-        _world.SetDot(50, 50, 1);
         IsMouseVisible = true;
         
         base.Initialize();
@@ -90,5 +89,8 @@ public class MonogameInstance : Game
     public MonogameInstance()
     {
         _gdm = new GraphicsDeviceManager(this);
+        
+        _world.RegisterDotType("sand", new SandProcessor());
+        _world.RegisterDotType("water", new FluidProcessor());
     }
 }
