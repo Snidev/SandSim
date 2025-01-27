@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SandSim.Simulation;
 
 namespace SandSim.Monogame;
 
@@ -9,6 +10,7 @@ public class MonogameInstance : Game
     private SpriteBatch _spriteBatch;
     private Color[] _rawTexture = new Color[Width * Height];
     private Texture2D _texture;
+    private World _world = new(Width, Height);
 
     private const int Width = 100;
     private const int Height = 100;
@@ -26,12 +28,10 @@ public class MonogameInstance : Game
 
     protected override void Update(GameTime gameTime)
     {
-        Random rng = new();
-        
-        for (int x = 0; x < 100; x++)
-        for (int y = 0; y < 100; y++)
+        for (int x = 0; x < _world.Width; x++)
+        for (int y = 0; y < _world.Height; y++)
         {
-            _rawTexture[Width * y + x] = new Color(rng.Next(0, 255), rng.Next(0, 255), rng.Next(0, 255));
+            _rawTexture[Width * y + x] = _world.GetDot(x, y) == 1 ? Color.Yellow : Color.Black;
         }
         
         _texture.SetData(_rawTexture);
@@ -42,6 +42,8 @@ public class MonogameInstance : Game
     protected override void Initialize()
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+        _world.SetDot(50, 50, 1);
         
         base.Initialize();
     }
