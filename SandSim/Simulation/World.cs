@@ -50,6 +50,35 @@ public class World(int width, int height)
                 SetDot(newX, newY, 1);
                 _noUpdate.Add((newX, newY));
             }
+
+            else if (curDot == 2) // Water, spreads and fills containers. Close to sand, but also tries to move horizontally when grounded
+            {
+                if (y >= Height - 1)
+                    continue;
+                
+                int newX = x, newY = y;
+                if (GetDot(x, y + 1) == 0)
+                {
+                    newY = y + 1;
+                }
+                else
+                {
+                    int xOffset = _rng.Next(0, 2) == 1 ? 1 : -1;
+                    int xPos = x + xOffset;
+                    int xNeg = x - xOffset;
+                    
+                    if (xPos >= 0 && xPos < Width && GetDot(xPos, newY) == 0)
+                        newX += xOffset;
+                    else if (xNeg >= 0 && xNeg < Width && GetDot(xNeg, newY) == 0)
+                        newX -= xOffset;
+                    else 
+                        continue;
+                }
+
+                SetDot(x, y, 0);
+                SetDot(newX, newY, 2);
+                _noUpdate.Add((newX, newY));
+            }
         }
     }
 }
