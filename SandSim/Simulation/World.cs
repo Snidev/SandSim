@@ -1,3 +1,5 @@
+using SandSim.Simulation.Logic;
+
 namespace SandSim.Simulation;
 
 public class World(int width, int height)
@@ -8,13 +10,24 @@ public class World(int width, int height)
 
     // Quick and dirty solution, optimize later
     private readonly HashSet<(int, int)> _noUpdate = new();
+    private readonly int[] xOrder = Enumerable.Range(0, width).ToArray();
     private readonly Random _rng = new();
+    
+    private SandProcessor _sandProcessor = new();
+    private WaterProcessor _waterProcessor = new();
     
     private int[,] _dots = new int[width, height];
 
     public int GetDot(int x, int y) => _dots[x, y];
     
     public void SetDot(int x, int y, int value) => _dots[x, y] = value;
+
+    public void MoveDot(int srcX, int srcY, int dstX, int dstY)
+    {
+        SetDot(dstX, dstY, GetDot(srcX, srcY));
+        SetDot(srcX, srcY, 0);
+        PauseDot(dstX, dstY);
+    }
     
     public bool IsInBounds(int x, int y) => x >= 0 && x < Width && y >= 0 && y < Height;
     
@@ -25,10 +38,12 @@ public class World(int width, int height)
     public void Update()
     {
         _noUpdate.Clear();
+        Rng.Shuffle(xOrder);
         
-        for (int x = 0; x < Width; x++)
+        for (int xIndex = 0; xIndex < Width; xIndex++)
         for (int y = 0; y < Height; y++)
         {
+            int x = xOrder[xIndex];
             if (_noUpdate.Contains((x, y)))
                 continue;
             
@@ -36,55 +51,13 @@ public class World(int width, int height)
 
             if (curDot == 1) // Sand, falls down
             {
-                if (y >= Height - 1)
-                    continue;
-                
-                int newX = x, newY = y + 1;
-                if (GetDot(x, newY) != 0)
-                {
-                    int xOffset = _rng.Next(0, 2) == 1 ? 1 : -1;
-                    int xPos = x + xOffset;
-                    int xNeg = x - xOffset;
-                    if (xPos >= 0 && xPos < Width && GetDot(xPos, newY) == 0)
-                        newX += xOffset;
-                    else if (xNeg >= 0 && xNeg < Width && GetDot(xNeg, newY) == 0)
-                        newX -= xOffset;
-                    else
-                        continue;
-                }
-                
-                SetDot(x, y, 0);
-                SetDot(newX, newY, 1);
-                _noUpdate.Add((newX, newY));
+                _sandProcessor.Update(this, x, y, curDot);
+                continue;
             }
 
-            else if (curDot == 2) // Water, spreads and fills containers. Close to sand, but also tries to move horizontally when grounded
+            if (curDot == 2) // Water, spreads and fills containers. Close to sand, but also tries to move horizontally when grounded
             {
-                if (y >= Height - 1)
-                    continue;
-                
-                int newX = x, newY = y;
-                if (GetDot(x, y + 1) == 0)
-                {
-                    newY = y + 1;
-                }
-                else
-                {
-                    int xOffset = _rng.Next(0, 2) == 1 ? 1 : -1;
-                    int xPos = x + xOffset;
-                    int xNeg = x - xOffset;
-                    
-                    if (xPos >= 0 && xPos < Width && GetDot(xPos, newY) == 0)
-                        newX += xOffset;
-                    else if (xNeg >= 0 && xNeg < Width && GetDot(xNeg, newY) == 0)
-                        newX -= xOffset;
-                    else 
-                        continue;
-                }
-
-                SetDot(x, y, 0);
-                SetDot(newX, newY, 2);
-                _noUpdate.Add((newX, newY));
+                _waterProcessor.Update(this, x, y, curDot);
             }
         }
     }
