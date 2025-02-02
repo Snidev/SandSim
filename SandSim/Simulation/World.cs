@@ -1,94 +1,140 @@
-using SandSim.Simulation.Logic;
+using Microsoft.Xna.Framework;
+using SandSim.Simulation.DotTypes;
 
 namespace SandSim.Simulation;
 
-public class World(int width, int height)
+public class World(Point size)
 {
-    public readonly int Width = width;
-    public readonly int Height = height;
-    public readonly Random Rng = new();
+    public readonly Random Random = new();
+    public readonly Point Size = size;
+    private readonly Dot?[,] _grid = new Dot?[size.X, size.Y];
+    private readonly HashSet<Dot> _nonUpdate = [];
+    private readonly int[] _xOrder = Enumerable.Range(0, size.X).ToArray();
 
-    // Quick and dirty solution, optimize later
-    private readonly HashSet<(int, int)> _noUpdate = new();
-    private readonly int[] xOrder = Enumerable.Range(0, width).ToArray();
-    private readonly Random _rng = new();
-    private readonly Dictionary<string, int> _dotTypeLookup = new();
-    private readonly List<DotType> _dotTypes = [ new DotType("Air", null, 0)];
+    public bool IsOpen(Point point) => IsInBounds(point) && IsEmpty(point);
     
-    private SandProcessor _sandProcessor = new();
-    private FluidProcessor _fluidProcessor = new();
-    
-    private int[,] _dots = new int[width, height];
+    public bool IsInBounds(Point point) => point is { X: >= 0, Y: >= 0 } && point.X < Size.X && point.Y < Size.Y;
 
-    public int GetDotId(int x, int y) => _dots[x, y];
-
-    public DotType GetDot(int x, int y) => _dotTypes[_dots[x, y]];
-
-    public void SetDot(int x, int y, string dotType)
+    public bool IsEmpty(Point point)
     {
-        int dot = LookupDotByName(dotType);
-        dot = dot == -1 ? 0 : dot;
+        if (!IsInBounds(point))
+            throw new OutOfWorldBoundsException();
 
-        SetDotById(x, y, dot);
+        return _grid[point.X, point.Y] is null;
     }
 
-    private void SetDotById(int x, int y, int id) => _dots[x, y] = id;
-
-    public int LookupDotByName(string name) => _dotTypeLookup.GetValueOrDefault(name, -1);
-
-    public void MoveDot(int srcX, int srcY, int dstX, int dstY)
+    public Dot? GetDot(Point point)
     {
-        SetDotById(dstX, dstY, GetDotId(srcX, srcY));
-        SetDotById(srcX, srcY, 0);
-        PauseDot(dstX, dstY);
+        if (!IsInBounds(point))
+            throw new OutOfWorldBoundsException();
+
+        return _grid[point.X, point.Y];
     }
     
-    public bool IsInBounds(int x, int y) => x >= 0 && x < Width && y >= 0 && y < Height;
-    
-    public bool IsEmpty(int x, int y) => _dots[x, y] == 0;
-    
-    public void PauseDot(int x, int y) => _noUpdate.Add((x, y));
-
-    public void RegisterDotType(string identifier, DotProcessor processor)
+    public void MoveDot(Point a, Point b)
     {
-        int id = _dotTypes.Count;
-
-        if (!_dotTypeLookup.TryAdd(identifier, id))
-            throw new DuplicateDotTypeException();
+        if (!IsInBounds(a))
+            throw new OutOfWorldBoundsException();
         
-        _dotTypes.Add(new DotType(identifier, processor, id));
+        if (!IsEmpty(b))
+            throw new PlacementConflictException();
+
+        (_grid[b.X, b.Y], _grid[a.X, a.Y]) = (_grid[a.X, a.Y], null);
     }
-    
+
+    public void AddDot(Dot dot, Point point)
+    {
+        if (!IsEmpty(point))
+            throw new PlacementConflictException();
+
+        if (dot.World != this)
+            throw new WorldConflictException();
+
+        _grid[point.X, point.Y] = dot;
+    }
+
+    public void SwapDots(Point a, Point b)
+    {
+        if (!IsInBounds(a) || !IsInBounds(b))
+            throw new OutOfWorldBoundsException();
+
+        (_grid[a.X, a.Y], _grid[b.X, b.Y]) = (_grid[b.X, b.Y], _grid[a.X, a.Y]);
+    }
+
+    public void DeleteDot(Point point)
+    {
+        if (!IsInBounds(point))
+            throw new OutOfWorldBoundsException();
+
+        _grid[point.X, point.Y] = null;
+    }
+
     public void Update()
     {
-        _noUpdate.Clear();
-        Rng.Shuffle(xOrder);
-        
-        for (int xIndex = 0; xIndex < Width; xIndex++)
-        for (int y = 0; y < Height; y++)
-        {
-            int x = xOrder[xIndex];
-            if (_noUpdate.Contains((x, y)))
-                continue;
-            
-            int curDot = GetDotId(x, y);
+        _nonUpdate.Clear();
+        Random.Shuffle(_xOrder);
 
-            _dotTypes[curDot].Processor?.Update(this, x, y, curDot);
+        for (int xIdx = 0; xIdx < Size.X; xIdx++)
+        {
+            int x = _xOrder[xIdx];
+            for (int y = 0; y < Size.Y; y++)
+            {
+                if (_grid[x, y] == null)
+                    continue;
+
+                Dot dot = _grid[x, y]!;
+
+                if (_nonUpdate.Contains(dot))
+                    continue;
+
+                dot.Update(new Point(x, y));
+                _nonUpdate.Add(dot);
+            }
         }
     }
 }
 
-public class DuplicateDotTypeException : Exception
+public class WorldConflictException : Exception
 {
-    public DuplicateDotTypeException()
+    public WorldConflictException()
     {
     }
 
-    public DuplicateDotTypeException(string message) : base(message)
+    public WorldConflictException(string message) : base(message)
     {
     }
 
-    public DuplicateDotTypeException(string message, Exception inner) : base(message, inner)
+    public WorldConflictException(string message, Exception inner) : base(message, inner)
+    {
+    }
+}
+
+public class PlacementConflictException : Exception
+{
+    public PlacementConflictException()
+    {
+    }
+
+    public PlacementConflictException(string message) : base(message)
+    {
+    }
+
+    public PlacementConflictException(string message, Exception inner) : base(message, inner)
+    {
+    }
+}
+
+public class OutOfWorldBoundsException : Exception
+{
+    public OutOfWorldBoundsException()
+    {
+    }
+
+    public OutOfWorldBoundsException(string message) : base(message)
+    {
+    }
+
+    public OutOfWorldBoundsException(string message, Exception inner) : base(message, inner)
     {
     }
 }
