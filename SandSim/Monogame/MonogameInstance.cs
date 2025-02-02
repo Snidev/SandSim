@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SandSim.Simulation;
-using SandSim.Simulation.Logic;
+using SandSim.Simulation.DotTypes;
 
 namespace SandSim.Monogame;
 
@@ -12,14 +12,13 @@ public class MonogameInstance : Game
     private SpriteBatch _spriteBatch;
     private Color[] _rawTexture = new Color[Width * Height];
     private Texture2D _texture;
-    private World _world = new(Width, Height);
+    private World _world = new(new Point(Width, Height));
+
+    private int _pen = 0;
 
     private const int Width = 100;
     private const int Height = 100;
     private const int Magnification = 4;
-
-    private string _pen = "sand";
-    
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Color.CornflowerBlue);
@@ -38,33 +37,36 @@ public class MonogameInstance : Game
         MouseState mouse = Mouse.GetState();
         if (mouse.LeftButton == ButtonState.Pressed)
         {
-            int localX = mouse.X / Magnification;
-            int localY = mouse.Y / Magnification;
+            Point localMouse = new(mouse.X / Magnification, mouse.Y / Magnification);
 
-            if (localX >= 0 && localX < _world.Width && localY >= 0 && localY < _world.Height)
+            if (_world.IsInBounds(localMouse))
             {
-                _world.SetDot(localX, localY, _pen);
+                Dot? newDot = _pen switch
+                {
+                    1 => new SandDot(_world),
+                    2 => new WaterDot(_world),
+                    _ => null,
+                };
+
+                if (newDot is null)
+                    _world.DeleteDot(localMouse);
+                else if (_world.IsOpen(localMouse))
+                    _world.AddDot(newDot, localMouse);
             }
         }
         
         KeyboardState keyboard = Keyboard.GetState();
-        if (keyboard.IsKeyDown(Keys.D1))
-            _pen = "sand";
-        if (keyboard.IsKeyDown(Keys.D2))
-            _pen = "water";
         if (keyboard.IsKeyDown(Keys.D0))
-            _pen = "air";
+            _pen = 0;
+        if (keyboard.IsKeyDown(Keys.D1))
+            _pen = 1;
+        if (keyboard.IsKeyDown(Keys.D2))
+            _pen = 2;
         
-        for (int x = 0; x < _world.Width; x++)
-        for (int y = 0; y < _world.Height; y++)
+        for (int x = 0; x < _world.Size.X; x++)
+        for (int y = 0; y < _world.Size.Y; y++)
         {
-            string dot = _world.GetDot(x, y).Name;
-            _rawTexture[Width * y + x] = dot switch
-            {
-                "sand" => Color.Yellow,
-                "water" => Color.Aqua,
-                _ => Color.Black
-            };
+            _rawTexture[_world.Size.X * y + x] = _world.GetDot(new Point(x, y))?.Color ?? Color.Black;
         }
         
         _texture.SetData(_rawTexture);
@@ -89,8 +91,5 @@ public class MonogameInstance : Game
     public MonogameInstance()
     {
         _gdm = new GraphicsDeviceManager(this);
-        
-        _world.RegisterDotType("sand", new SandProcessor());
-        _world.RegisterDotType("water", new FluidProcessor());
     }
 }
