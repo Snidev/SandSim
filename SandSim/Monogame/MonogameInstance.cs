@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SandSim.Simulation;
 using SandSim.Simulation.DotTypes;
+using SandSim.Simulation.Physics;
 
 namespace SandSim.Monogame;
 
@@ -79,7 +80,53 @@ public class MonogameInstance : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         IsMouseVisible = true;
         
+        // Testing linear traces
+        
+        TestLinearTrace(new Point(49, 49), new Point(49, 94));
+        TestLinearTrace(new Point(49, 49), new Point(94, 49));
+        TestLinearTrace(new Point(49, 49), new Point(49, 4));
+        TestLinearTrace(new Point(49, 49), new Point(4, 49));
+        
+        TestLinearTraceTheta(new Point(50, 50), 0, 45);
+        TestLinearTraceTheta(new Point(50, 50), Math.PI / 2, 45);
+        TestLinearTraceTheta(new Point(50, 50), Math.PI, 45);
+        TestLinearTraceTheta(new Point(50, 50), Math.PI * 3 / 2, 45);
+        
         base.Initialize();
+        return;
+
+        void TestLinearTrace(Point start, Point end)
+        {
+            LinearTrace trace = new(_world, start, end);
+
+            while (!trace.Finished)
+            {
+                if (trace.Step() is not null)
+                    continue;
+
+                DebugDot d = new(_world);
+                d.DotColor = Color.Blue;
+                if (trace.Finished)
+                    d.DotColor = Color.Red;
+                _world.AddDot(d, trace.CurPosition);
+            }
+        }
+
+        void TestLinearTraceTheta(Point start, double theta, int distance)
+        {
+            LinearTrace trace = new(_world, start, theta, distance);
+            
+            while (!trace.Finished)
+            {
+                if (trace.Step() is not null)
+                    continue;
+
+                DebugDot d = new(_world);
+                if (trace.Finished)
+                    d.DotColor = Color.Red;
+                _world.AddDot(d, trace.CurPosition);
+            }
+        }
     }
 
     protected override void LoadContent()
