@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -14,18 +16,38 @@ public class MonogameInstance : Game
     private Color[] _rawTexture = new Color[Width * Height];
     private Texture2D _texture;
     private World _world = new(new Point(Width, Height));
+    private SpriteFont _sf;
 
     private int _pen = 0;
+    private string fpsCounter = "FPS:      ";
+    private string particleCounter = "Particles:               ";
+    
 
-    private const int Width = 100;
-    private const int Height = 100;
-    private const int Magnification = 4;
+    private const int Width = 800;
+    private const int Height = 480;
+    private const int Magnification = 1;
     protected override void Draw(GameTime gameTime)
     {
+        Span<char> fpsCtr = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<char>(fpsCounter.GetPinnableReference()),
+            fpsCounter.Length);
+        Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds).TryFormat(fpsCtr[5..], out int w);
+        Span<char> clear = fpsCtr[(5 + w)..];
+        for (int i = 0; i < clear.Length; i++)
+            clear[i] = ' ';
+        
+        Span<char> pCtr = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<char>(particleCounter.GetPinnableReference()),
+            particleCounter.Length);
+        _world.Particles.TryFormat(pCtr[11..], out w);
+        clear = pCtr[(11 + w)..];
+        for (int i = 0; i < clear.Length; i++)
+            clear[i] = ' ';
+        
         GraphicsDevice.Clear(Color.CornflowerBlue);
         
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
         _spriteBatch.Draw(_texture, new Rectangle(0, 0, Width * Magnification, Height * Magnification), Color.White);
+        _spriteBatch.DrawString(_sf, fpsCounter, Vector2.One, Color.White);
+        _spriteBatch.DrawString(_sf, particleCounter, new Vector2(1, 30), Color.White);
         _spriteBatch.End();
         
         base.Draw(gameTime);
@@ -92,12 +114,12 @@ public class MonogameInstance : Game
         IsMouseVisible = true;
         
         base.Initialize();
-        return;
     }
 
     protected override void LoadContent()
     {
         _texture = new Texture2D(GraphicsDevice, Width, Height);
+        _sf = Content.Load<SpriteFont>("Monogame/Content/ArialFont");
         
         base.LoadContent();
     }
@@ -105,5 +127,11 @@ public class MonogameInstance : Game
     public MonogameInstance()
     {
         _gdm = new GraphicsDeviceManager(this);
+
+        IsFixedTimeStep = true;
+        TargetElapsedTime = TimeSpan.FromSeconds(1.0 / 60.0);
+        InactiveSleepTime = TimeSpan.Zero;
+        _gdm.SynchronizeWithVerticalRetrace = false;
+        _gdm.ApplyChanges();
     }
 }

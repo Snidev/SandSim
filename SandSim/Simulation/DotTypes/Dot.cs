@@ -2,10 +2,23 @@ using Microsoft.Xna.Framework;
 
 namespace SandSim.Simulation.DotTypes;
 
-public abstract class Dot(World world)
+public abstract class Dot
 {
-    public readonly World World = world;
+    public static int Allocated { get; private set; }
+    public readonly World World;
     private bool _isInWorld = false;
+
+    protected Dot(World world)
+    {
+        World = world;
+        Allocated++;
+    }
+
+    ~Dot()
+    {
+        Allocated--;
+    }
+
     public abstract Color Color { get; }
 
     public abstract void Update(Point position);

@@ -5,6 +5,7 @@ namespace SandSim.Simulation;
 
 public class World(Point size)
 {
+    public uint Particles { get; private set; }
     public readonly Random Random = new();
     public readonly Point Size = size;
     private readonly Dot?[,] _grid = new Dot?[size.X, size.Y];
@@ -51,6 +52,7 @@ public class World(Point size)
             throw new WorldConflictException();
 
         _grid[point.X, point.Y] = dot;
+        Particles++;
     }
 
     public void SwapDots(Point a, Point b)
@@ -66,6 +68,8 @@ public class World(Point size)
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
 
+        Particles -= _grid[point.X, point.Y] is not null ? 1u : 0u;
+        
         _grid[point.X, point.Y] = null;
     }
 
