@@ -12,18 +12,46 @@ public struct LinearTrace
     public readonly Point Origin;
     public readonly Point Destination;
     public Point CurPosition { get; private set; }
-    public bool Finished { get; private set; } = false;
+    public int StepCount { get; private set; }
+    private bool _finished = false;
+    public bool Finished => Origin == Destination || _finished;
 
     private int _error;
     private Point _delta;
     private readonly Point _step;
+    private const double Sqrt2 = 1.41421356237f;
+
+    public Point NextStep
+    {
+        get
+        {
+            Point ret = CurPosition;
+            if (Finished)
+                return ret;
+        
+            int e2 = _error * 2;
+
+            if (e2 > -_delta.Y)
+            {
+                ret = CurPosition + new Point(_step.X, 0);
+            }
+
+            if (e2 < _delta.X)
+            {
+                ret = CurPosition + new Point(0, _step.Y);
+            }
+
+            return ret;
+        }
+    }
     
     public Dot? Step()
     {
-        if (Finished) 
+        if (Finished)
             return null;
         
         int e2 = _error * 2;
+        Span<double> dist = [1, Sqrt2];
 
         if (e2 > -_delta.Y)
         {
@@ -38,8 +66,9 @@ public struct LinearTrace
         }
         
         if (CurPosition == Destination)
-            Finished = true;
-            
+            _finished = true;
+
+        StepCount++;
         return World.GetDot(CurPosition);
     }
 
