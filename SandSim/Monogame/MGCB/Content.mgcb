@@ -1,6 +1,7 @@
+
 #----------------------------- Global Properties ----------------------------#
 
-/outputDir:bin/$(Platform)
+/outputDir:../Content
 /intermediateDir:obj/$(Platform)
 /platform:DesktopGL
 /config:
@@ -11,3 +12,11 @@
 
 
 #---------------------------------- Content ---------------------------------#
+
+#begin ArialFont.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:ArialFont.spritefont
+
