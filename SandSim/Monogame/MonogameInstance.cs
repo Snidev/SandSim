@@ -34,27 +34,36 @@ public class MonogameInstance : Game
     protected override void Update(GameTime gameTime)
     {
         _world.Update();
-        
+
+        int brushSize = 5;
         MouseState mouse = Mouse.GetState();
         if (mouse.LeftButton == ButtonState.Pressed)
         {
             Point localMouse = new(mouse.X / Magnification, mouse.Y / Magnification);
-
-            if (_world.IsInBounds(localMouse))
+            for (int x = -brushSize/2; x < brushSize/2; x++)
             {
-                Dot? newDot = _pen switch
+                for (int y = -brushSize/2; y < brushSize/2; y++)
                 {
-                    1 => new SandDot(_world),
-                    2 => new WaterDot(_world),
-                    _ => null,
-                };
+                    Point bPoint = new(localMouse.X + x, localMouse.Y + y);
+                    if (_world.IsInBounds(bPoint))
+                    {
+                        Dot? newDot = _pen switch
+                        {
+                            1 => new SandDot(_world),
+                            2 => new WaterDot(_world),
+                            3 => new GasDot(_world),
+                            _ => null,
+                        };
 
-                if (newDot is null)
-                    _world.DeleteDot(localMouse);
-                else if (_world.IsOpen(localMouse))
-                    _world.AddDot(newDot, localMouse);
+                        if (newDot is null)
+                            _world.DeleteDot(bPoint);
+                        else if (_world.IsOpen(bPoint))
+                            _world.AddDot(newDot, bPoint);
+                    }
+                }
             }
         }
+    
         
         KeyboardState keyboard = Keyboard.GetState();
         if (keyboard.IsKeyDown(Keys.D0))
@@ -63,6 +72,8 @@ public class MonogameInstance : Game
             _pen = 1;
         if (keyboard.IsKeyDown(Keys.D2))
             _pen = 2;
+        if (keyboard.IsKeyDown(Keys.D3))
+            _pen = 3;
         
         for (int x = 0; x < _world.Size.X; x++)
         for (int y = 0; y < _world.Size.Y; y++)
@@ -80,58 +91,14 @@ public class MonogameInstance : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         IsMouseVisible = true;
         
-        // Testing linear traces
-        
-        TestLinearTrace(new Point(49, 49), new Point(49, 94));
-        TestLinearTrace(new Point(49, 49), new Point(94, 49));
-        TestLinearTrace(new Point(49, 49), new Point(49, 4));
-        TestLinearTrace(new Point(49, 49), new Point(4, 49));
-        
-        TestLinearTraceTheta(new Point(50, 50), 0, 45);
-        TestLinearTraceTheta(new Point(50, 50), Math.PI / 2, 45);
-        TestLinearTraceTheta(new Point(50, 50), Math.PI, 45);
-        TestLinearTraceTheta(new Point(50, 50), Math.PI * 3 / 2, 45);
-        
         base.Initialize();
         return;
-
-        void TestLinearTrace(Point start, Point end)
-        {
-            LinearTrace trace = new(_world, start, end);
-
-            while (!trace.Finished)
-            {
-                if (trace.Step() is not null)
-                    continue;
-
-                DebugDot d = new(_world);
-                d.DotColor = Color.Blue;
-                if (trace.Finished)
-                    d.DotColor = Color.Red;
-                _world.AddDot(d, trace.CurPosition);
-            }
-        }
-
-        void TestLinearTraceTheta(Point start, double theta, int distance)
-        {
-            LinearTrace trace = new(_world, start, theta, distance);
-            
-            while (!trace.Finished)
-            {
-                if (trace.Step() is not null)
-                    continue;
-
-                DebugDot d = new(_world);
-                if (trace.Finished)
-                    d.DotColor = Color.Red;
-                _world.AddDot(d, trace.CurPosition);
-            }
-        }
     }
 
     protected override void LoadContent()
     {
         _texture = new Texture2D(GraphicsDevice, Width, Height);
+        
         base.LoadContent();
     }
 
