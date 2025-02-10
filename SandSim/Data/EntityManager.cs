@@ -21,15 +21,15 @@ public abstract class EntityManager
     }
 
     public Entity GetEntity(int entityId) =>
-        _entities.Contains(entityId) ? new Entity(entityId, _generations[entityId]) : Entity.Null;
+        _entities.Contains(entityId) ? new Entity(entityId, _generations[entityId]) : new Entity(-1, -1);
 
-    public void FreeEntity(Entity entity)
+    public bool FreeEntity(Entity entity)
     {
         // If the provided entity does not match the generation of the current instance the two objects are not equal
         // If an id that is not allocated is provided GetEntity will return Entity.Null
         Entity validInstance = GetEntity(entity.Id);
-        if (validInstance == Entity.Null || entity != validInstance)
-            return;
+        if (validInstance == new Entity(-1, -1) || entity != validInstance)
+            return false;
 
         _entities.Remove(entity.Id);
         _freeIndices.Push(entity.Id);
@@ -38,25 +38,26 @@ public abstract class EntityManager
         {
             componentStore.Remove(entity.Id);
         }
+        return true;
     }
 
-    public T? GetComponentOrDefault<T>(Entity ent, int componentIndex)
+    protected T? GetComponentOrDefault<T>(Entity ent, int componentIndex)
     {
         ComponentStore<T> componentStore = (ComponentStore[componentIndex] as ComponentStore<T>)!;
         Entity validInstance = GetEntity(ent.Id);
 
-        if (validInstance == Entity.Null || ent != validInstance)
+        if (validInstance == new Entity(-1, -1) || ent != validInstance)
             return componentStore.Default;
-
+        
         return componentStore.GetComponentOrDefault(ent.Id);
     }
 
-    public void SetComponent<T>(Entity ent, int componentIndex, T? value)
+    protected void SetComponent<T>(Entity ent, int componentIndex, T? value)
     {
         ComponentStore<T> componentStore = (ComponentStore[componentIndex] as ComponentStore<T>)!;
         Entity validInstance = GetEntity(ent.Id);
 
-        if (validInstance == Entity.Null || ent != validInstance)
+        if (validInstance == new Entity(-1, -1) || ent != validInstance)
             return;
 
         componentStore.SetComponent(ent.Id, value);
@@ -68,21 +69,22 @@ public abstract class EntityManager
         IComponentStore componentStore = ComponentStore[componentIndex];
         Entity validInstance = GetEntity(ent.Id);
 
-        if (validInstance == Entity.Null || ent != validInstance)
+        if (validInstance == new Entity(-1, -1) || ent != validInstance)
             return false;
 
         return componentStore.Contains(ent.Id);
     }
 
-    public void AllocateComponent<T>(Entity ent, int componentIndex, T value)
+    public void AllocateComponent<T>(Entity ent, int componentIndex, T? value)
     {
         IComponentStore componentStore = ComponentStore[componentIndex];
 
         Entity validInstance = GetEntity(ent.Id);
-        if (validInstance == Entity.Null || ent != validInstance)
+        if (validInstance == new Entity(-1, -1) || ent != validInstance)
             return;
 
         componentStore.Add(ent.Id);
+        (componentStore as ComponentStore<T>).SetComponent(ent.Id, value);
     }
 
     public void FreeComponent<T>(Entity ent, int componentIndex, T value)
@@ -90,7 +92,7 @@ public abstract class EntityManager
         IComponentStore componentStore = ComponentStore[componentIndex];
 
         Entity validInstance = GetEntity(ent.Id);
-        if (validInstance == Entity.Null || ent != validInstance)
+        if (validInstance == new Entity(-1, -1) || ent != validInstance)
             return;
 
         componentStore.Remove(ent.Id);

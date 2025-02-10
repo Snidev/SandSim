@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using SandSim.Data;
 
 namespace SandSim.Simulation.Physics;
 
@@ -47,9 +48,6 @@ public struct RadialTrace(World world, Point origin, int radius)
             else
                 _trace = new LinearTrace(world, Origin, Origin + GetTargetPoint(++_squareStep, Radius));
         }
-
-        if (CurPosition == Origin)
-            _ = 0;
         
         return result;
     }

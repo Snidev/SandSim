@@ -84,7 +84,7 @@ public struct SparseSet(int initialMax)
 
     public bool Contains(int value)
     {
-        if (value >= _sparse.Length || _sparse[value] == -1 || _sparse[value] >= _count)
+        if (value < 0 || value >= _sparse.Length || _sparse[value] == -1 || _sparse[value] >= _count)
             return false;
 
         return _dense[_sparse[value]] == value;

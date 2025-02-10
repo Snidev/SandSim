@@ -1,16 +1,32 @@
 using Microsoft.Xna.Framework;
+using SandSim.Data;
 
 namespace SandSim.Simulation;
 
-public class World(Point size)
+public class World : EntityManager
 {
+    // ECS implementations
+    private readonly IComponentStore[] _componentStore;
+    protected override IComponentStore[] ComponentStore => _componentStore;
+
+    public T? GetComponentOrDefault<T>(Point point, Components component) => 
+        GetComponentOrDefault<T>(GetDot(point), (int)component);
+
+    public void SetComponent<T>(Point point, Components component, T value) => 
+        SetComponent(GetDot(point), (int)component, value);
+
+    public bool HasComponent<T>(Point point, Components component) => HasComponent<T>(GetDot(point), (int)component);
+    
+    public void AddComponent<T>(Point point, Components component, T value) =>
+        AllocateComponent(GetDot(point), (int)component, value);
+    
     public uint Particles { get; private set; }
     public readonly Random Random = new();
-    public readonly Point Size = size;
-    private readonly DotType[,] _grid = new DotType[size.X, size.Y];
+    public readonly Point Size;
+    private readonly Entity[,] _grid;
     private readonly HashSet<Point> _nonUpdate = [];
-    private readonly int[] _xOrder = Enumerable.Range(0, size.X).ToArray();
-
+    private readonly int[] _xOrder;
+    
     public bool IsOpen(Point point) => IsInBounds(point) && IsEmpty(point);
     
     public bool IsInBounds(Point point) => point is { X: >= 0, Y: >= 0 } && point.X < Size.X && point.Y < Size.Y;
@@ -20,10 +36,10 @@ public class World(Point size)
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
 
-        return _grid[point.X, point.Y] == 0;
+        return GetComponentOrDefault<DotType>(point, Components.DotType) == DotType.Empty;
     }
 
-    public DotType GetDot(Point point)
+    public Entity GetDot(Point point)
     {
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
@@ -39,7 +55,7 @@ public class World(Point size)
         if (!IsEmpty(b))
             throw new PlacementConflictException();
 
-        (_grid[b.X, b.Y], _grid[a.X, a.Y]) = (_grid[a.X, a.Y], 0);
+        (_grid[b.X, b.Y], _grid[a.X, a.Y]) = (_grid[a.X, a.Y], new Entity(-1, -1));
     }
 
     public void AddDot(DotType dot, Point point)
@@ -47,7 +63,10 @@ public class World(Point size)
         if (!IsEmpty(point))
             throw new PlacementConflictException();
 
-        _grid[point.X, point.Y] = dot;
+        Entity ent = AllocateEntity();
+        AllocateComponent(ent, (int)Components.DotType, dot);
+        
+        _grid[point.X, point.Y] = ent;
         Particles++;
     }
 
@@ -64,9 +83,12 @@ public class World(Point size)
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
 
-        Particles -= _grid[point.X, point.Y] != 0 ? 1u : 0u;
+
+        Entity ent = _grid[point.X, point.Y];
+        if (FreeEntity(ent))
+            Particles--;
         
-        _grid[point.X, point.Y] = 0;
+        _grid[point.X, point.Y] = new Entity(-1, -1);
     }
 
     public void Update()
@@ -80,16 +102,15 @@ public class World(Point size)
             for (int y = 0; y < Size.Y; y++)
             {
                 Point index = new Point(x, y);
-                if (_grid[x, y] == 0)
+                DotType dt = GetComponentOrDefault<DotType>(index, Components.DotType);
+                if (dt == DotType.Empty)
                     continue;
-
-                DotType dot = _grid[x, y]!;
 
                 if (_nonUpdate.Contains(index))
                     continue;
                 
                 // Sand code
-                if (dot == DotType.Sand)
+                if (dt == DotType.Sand)
                 {
                     Span<Point> targets = [new Point(0, 1), new Point(1, 1), new Point(-1, 1)];
                     Point target = Point.Zero;
@@ -108,10 +129,27 @@ public class World(Point size)
                     if (hasTarget)
                     {
                         SwapDots(index, index + target);
+                        _nonUpdate.Add(index + target);
                     }
                 }
             }
         }
+    }
+
+    public World(Point size)
+    {
+        const int BaseSize = 1024;
+        Size = size;
+        _grid = new Entity[size.X, size.Y];
+        for (int x = 0; x < size.X; x++)
+        for (int y = 0; y < size.Y; y++)
+        {
+            _grid[x, y] = new Entity(-1, -1);
+        }
+        _xOrder = Enumerable.Range(0, size.X).ToArray();
+        _componentStore = new IComponentStore[Enum.GetValues(typeof(Components)).Length];
+        
+        _componentStore[(int)Components.DotType] = new ComponentStore<DotType>(BaseSize, DotType.Empty);
     }
 }
 

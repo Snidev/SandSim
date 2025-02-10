@@ -4,7 +4,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SandSim.Simulation;
-using SandSim.Simulation.Physics;
 
 namespace SandSim.Monogame;
 
@@ -22,9 +21,9 @@ public class MonogameInstance : Game
     private string particleCounter = "Particles:               ";
     
 
-    private const int Width = 800;
-    private const int Height = 480;
-    private const int Magnification = 1;
+    private const int Width = 200;
+    private const int Height = 200;
+    private const int Magnification = 2;
     protected override void Draw(GameTime gameTime)
     {
         Span<char> fpsCtr = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<char>(fpsCounter.GetPinnableReference()),
@@ -56,7 +55,7 @@ public class MonogameInstance : Game
     {
         _world.Update();
 
-        int brushSize = 5;
+        int brushSize = 8;
         MouseState mouse = Mouse.GetState();
         if (mouse.LeftButton == ButtonState.Pressed)
         {
@@ -97,7 +96,7 @@ public class MonogameInstance : Game
         for (int x = 0; x < _world.Size.X; x++)
         for (int y = 0; y < _world.Size.Y; y++)
         {
-            _rawTexture[_world.Size.X * y + x] = _world.GetDot(new Point(x, y)) == DotType.Sand ? Color.Yellow : Color.Black;
+            _rawTexture[_world.Size.X * y + x] = _world.GetComponentOrDefault<DotType>(new Point(x, y), Simulation.Components.DotType) == DotType.Sand ? Color.Yellow : Color.Black;
         }
         
         _texture.SetData(_rawTexture);

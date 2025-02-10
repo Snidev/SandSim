@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using SandSim.Data;
 
 namespace SandSim.Simulation.Physics;
 
@@ -46,6 +47,8 @@ public struct LinearTrace
     
     public DotType Step()
     {
+        
+        
         if (Finished)
             return DotType.Empty;
         
@@ -68,7 +71,7 @@ public struct LinearTrace
             _finished = true;
 
         StepCount++;
-        return World.GetDot(CurPosition);
+        return World.GetComponentOrDefault<DotType>(CurPosition, Components.DotType);
     }
 
     private static (Point delta, Point step) CalcVars(Point origin, Point destination)
