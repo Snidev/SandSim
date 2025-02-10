@@ -17,6 +17,23 @@
         </Content>
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Simulation\DotTypes\DebugDot.cs" />
+      <None Include="Simulation\DotTypes\DebugDot.cs" />
+      <Compile Remove="Simulation\DotTypes\Dot.cs" />
+      <None Include="Simulation\DotTypes\Dot.cs" />
+      <Compile Remove="Simulation\DotTypes\GasDot.cs" />
+      <None Include="Simulation\DotTypes\GasDot.cs" />
+      <Compile Remove="Simulation\DotTypes\LiquidDot.cs" />
+      <None Include="Simulation\DotTypes\LiquidDot.cs" />
+      <Compile Remove="Simulation\DotTypes\SandDot.cs" />
+      <None Include="Simulation\DotTypes\SandDot.cs" />
+      <Compile Remove="Simulation\DotTypes\StaticDot.cs" />
+      <None Include="Simulation\DotTypes\StaticDot.cs" />
+      <Compile Remove="Simulation\DotTypes\WaterDot.cs" />
+      <None Include="Simulation\DotTypes\WaterDot.cs" />
+    </ItemGroup>
+
     <Target Name="RestoreDotnetTools" BeforeTargets="Restore">
         <Message Text="Restoring dotnet tools" Importance="High" />
         <Exec Command="dotnet tool restore" />

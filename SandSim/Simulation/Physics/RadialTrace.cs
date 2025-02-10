@@ -1,5 +1,4 @@
 using Microsoft.Xna.Framework;
-using SandSim.Simulation.DotTypes;
 
 namespace SandSim.Simulation.Physics;
 
@@ -31,14 +30,14 @@ public struct RadialTrace(World world, Point origin, int radius)
         };
     }
 
-    public Dot? Step()
+    public DotType Step()
     {
         if (Finished)
-            return null;
+            return DotType.Empty;
 
         double sqDist = Math.Round(Math.Pow(_trace.CurPosition.X - Origin.X, 2) + Math.Pow(_trace.CurPosition.Y - Origin.Y, 2));
         
-        Dot? result = _trace.Step();
+        DotType result = _trace.Step();
         CurPosition = _trace.CurPosition;
 
         if (sqDist > _sqRadius || _trace.Finished)

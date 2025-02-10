@@ -4,7 +4,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SandSim.Simulation;
-using SandSim.Simulation.DotTypes;
 using SandSim.Simulation.Physics;
 
 namespace SandSim.Monogame;
@@ -69,15 +68,13 @@ public class MonogameInstance : Game
                     Point bPoint = new(localMouse.X + x, localMouse.Y + y);
                     if (_world.IsInBounds(bPoint))
                     {
-                        Dot? newDot = _pen switch
+                        DotType newDot = _pen switch
                         {
-                            1 => new SandDot(_world),
-                            2 => new WaterDot(_world),
-                            3 => new GasDot(_world),
-                            _ => null,
+                            1 => DotType.Sand,
+                            _ => DotType.Empty,
                         };
 
-                        if (newDot is null)
+                        if (newDot == DotType.Empty)
                             _world.DeleteDot(bPoint);
                         else if (_world.IsOpen(bPoint))
                             _world.AddDot(newDot, bPoint);
@@ -100,7 +97,7 @@ public class MonogameInstance : Game
         for (int x = 0; x < _world.Size.X; x++)
         for (int y = 0; y < _world.Size.Y; y++)
         {
-            _rawTexture[_world.Size.X * y + x] = _world.GetDot(new Point(x, y))?.Color ?? Color.Black;
+            _rawTexture[_world.Size.X * y + x] = _world.GetDot(new Point(x, y)) == DotType.Sand ? Color.Yellow : Color.Black;
         }
         
         _texture.SetData(_rawTexture);

@@ -1,5 +1,4 @@
 using Microsoft.Xna.Framework;
-using SandSim.Simulation.DotTypes;
 
 namespace SandSim.Simulation;
 
@@ -8,8 +7,8 @@ public class World(Point size)
     public uint Particles { get; private set; }
     public readonly Random Random = new();
     public readonly Point Size = size;
-    private readonly Dot?[,] _grid = new Dot?[size.X, size.Y];
-    private readonly HashSet<Dot> _nonUpdate = [];
+    private readonly DotType[,] _grid = new DotType[size.X, size.Y];
+    private readonly HashSet<Point> _nonUpdate = [];
     private readonly int[] _xOrder = Enumerable.Range(0, size.X).ToArray();
 
     public bool IsOpen(Point point) => IsInBounds(point) && IsEmpty(point);
@@ -21,10 +20,10 @@ public class World(Point size)
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
 
-        return _grid[point.X, point.Y] is null;
+        return _grid[point.X, point.Y] == 0;
     }
 
-    public Dot? GetDot(Point point)
+    public DotType GetDot(Point point)
     {
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
@@ -40,16 +39,13 @@ public class World(Point size)
         if (!IsEmpty(b))
             throw new PlacementConflictException();
 
-        (_grid[b.X, b.Y], _grid[a.X, a.Y]) = (_grid[a.X, a.Y], null);
+        (_grid[b.X, b.Y], _grid[a.X, a.Y]) = (_grid[a.X, a.Y], 0);
     }
 
-    public void AddDot(Dot dot, Point point)
+    public void AddDot(DotType dot, Point point)
     {
         if (!IsEmpty(point))
             throw new PlacementConflictException();
-
-        if (dot.World != this)
-            throw new WorldConflictException();
 
         _grid[point.X, point.Y] = dot;
         Particles++;
@@ -68,9 +64,9 @@ public class World(Point size)
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
 
-        Particles -= _grid[point.X, point.Y] is not null ? 1u : 0u;
+        Particles -= _grid[point.X, point.Y] != 0 ? 1u : 0u;
         
-        _grid[point.X, point.Y] = null;
+        _grid[point.X, point.Y] = 0;
     }
 
     public void Update()
@@ -83,16 +79,37 @@ public class World(Point size)
             int x = _xOrder[xIdx];
             for (int y = 0; y < Size.Y; y++)
             {
-                if (_grid[x, y] == null)
+                Point index = new Point(x, y);
+                if (_grid[x, y] == 0)
                     continue;
 
-                Dot dot = _grid[x, y]!;
+                DotType dot = _grid[x, y]!;
 
-                if (_nonUpdate.Contains(dot))
+                if (_nonUpdate.Contains(index))
                     continue;
+                
+                // Sand code
+                if (dot == DotType.Sand)
+                {
+                    Span<Point> targets = [new Point(0, 1), new Point(1, 1), new Point(-1, 1)];
+                    Point target = Point.Zero;
+                    bool hasTarget = false;
+                    Random.Shuffle(targets[1..]);
 
-                dot.Update(new Point(x, y));
-                _nonUpdate.Add(dot);
+                    foreach (Point point in targets)
+                    {
+                        if (!IsOpen(index + point)) 
+                            continue;
+                        
+                        hasTarget = true;
+                        target = point;
+                    }
+
+                    if (hasTarget)
+                    {
+                        SwapDots(index, index + target);
+                    }
+                }
             }
         }
     }

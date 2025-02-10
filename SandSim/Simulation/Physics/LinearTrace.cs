@@ -1,5 +1,4 @@
 using Microsoft.Xna.Framework;
-using SandSim.Simulation.DotTypes;
 
 namespace SandSim.Simulation.Physics;
 
@@ -45,10 +44,10 @@ public struct LinearTrace
         }
     }
     
-    public Dot? Step()
+    public DotType Step()
     {
         if (Finished)
-            return null;
+            return DotType.Empty;
         
         int e2 = _error * 2;
         Span<double> dist = [1, Sqrt2];
