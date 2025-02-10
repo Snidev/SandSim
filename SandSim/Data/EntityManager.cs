@@ -1,0 +1,104 @@
+namespace SandSim.Data;
+
+public abstract class EntityManager
+{
+    private const int BaseCount = 512;
+    private SparseSet _entities = new(BaseCount);
+    private int[] _generations = new int[BaseCount];
+    private readonly Stack<int> _freeIndices = new();
+
+    protected abstract IComponentStore[] ComponentStore { get; }
+
+    public Entity AllocateEntity()
+    {
+        int nextFreeIndex = _freeIndices.Count > 0 ? _freeIndices.Pop() : _entities.Count;
+        int generation = GetCurrentGeneration(nextFreeIndex);
+
+        _entities.Add(nextFreeIndex);
+        _generations[nextFreeIndex] = ++generation;
+
+        return new Entity(nextFreeIndex, generation);
+    }
+
+    public Entity GetEntity(int entityId) =>
+        _entities.Contains(entityId) ? new Entity(entityId, _generations[entityId]) : Entity.Null;
+
+    public void FreeEntity(Entity entity)
+    {
+        // If the provided entity does not match the generation of the current instance the two objects are not equal
+        // If an id that is not allocated is provided GetEntity will return Entity.Null
+        Entity validInstance = GetEntity(entity.Id);
+        if (validInstance == Entity.Null || entity != validInstance)
+            return;
+
+        _entities.Remove(entity.Id);
+        _freeIndices.Push(entity.Id);
+
+        foreach (IComponentStore componentStore in ComponentStore)
+        {
+            componentStore.Remove(entity.Id);
+        }
+    }
+
+    public T? GetComponentOrDefault<T>(Entity ent, int componentIndex)
+    {
+        ComponentStore<T> componentStore = (ComponentStore[componentIndex] as ComponentStore<T>)!;
+        Entity validInstance = GetEntity(ent.Id);
+
+        if (validInstance == Entity.Null || ent != validInstance)
+            return componentStore.Default;
+
+        return componentStore.GetComponentOrDefault(ent.Id);
+    }
+
+    public void SetComponent<T>(Entity ent, int componentIndex, T? value)
+    {
+        ComponentStore<T> componentStore = (ComponentStore[componentIndex] as ComponentStore<T>)!;
+        Entity validInstance = GetEntity(ent.Id);
+
+        if (validInstance == Entity.Null || ent != validInstance)
+            return;
+
+        componentStore.SetComponent(ent.Id, value);
+    }
+
+    public bool HasComponent<T>(Entity ent, int componentIndex)
+    {
+
+        IComponentStore componentStore = ComponentStore[componentIndex];
+        Entity validInstance = GetEntity(ent.Id);
+
+        if (validInstance == Entity.Null || ent != validInstance)
+            return false;
+
+        return componentStore.Contains(ent.Id);
+    }
+
+    public void AllocateComponent<T>(Entity ent, int componentIndex, T value)
+    {
+        IComponentStore componentStore = ComponentStore[componentIndex];
+
+        Entity validInstance = GetEntity(ent.Id);
+        if (validInstance == Entity.Null || ent != validInstance)
+            return;
+
+        componentStore.Add(ent.Id);
+    }
+
+    public void FreeComponent<T>(Entity ent, int componentIndex, T value)
+    {
+        IComponentStore componentStore = ComponentStore[componentIndex];
+
+        Entity validInstance = GetEntity(ent.Id);
+        if (validInstance == Entity.Null || ent != validInstance)
+            return;
+
+        componentStore.Remove(ent.Id);
+    }
+
+    private int GetCurrentGeneration(int index)
+    {
+        ArrayHelper.Expand(ref _generations, index);
+        return _generations[index];
+    }
+}
