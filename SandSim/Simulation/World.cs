@@ -26,6 +26,9 @@ public class World : EntityManager
     private readonly Entity[,] _grid;
     private readonly HashSet<Point> _nonUpdate = [];
     private readonly int[] _xOrder;
+    private readonly int[] _edgeOrder;
+    private readonly bool[,] _chunkUpdate;
+    public readonly int ChunkSize;
     
     public bool IsOpen(Point point) => IsInBounds(point) && IsEmpty(point);
     
@@ -43,6 +46,7 @@ public class World : EntityManager
     {
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
+        
 
         return _grid[point.X, point.Y];
     }
@@ -56,6 +60,8 @@ public class World : EntityManager
             throw new PlacementConflictException();
 
         (_grid[b.X, b.Y], _grid[a.X, a.Y]) = (_grid[a.X, a.Y], new Entity(-1, -1));
+        Wake(a);
+        Wake(b);
     }
 
     public void AddDot(DotType dot, Point point)
@@ -68,6 +74,7 @@ public class World : EntityManager
         
         _grid[point.X, point.Y] = ent;
         Particles++;
+        Wake(point);
     }
 
     public void SwapDots(Point a, Point b)
@@ -76,6 +83,8 @@ public class World : EntityManager
             throw new OutOfWorldBoundsException();
 
         (_grid[a.X, a.Y], _grid[b.X, b.Y]) = (_grid[b.X, b.Y], _grid[a.X, a.Y]);
+        Wake(a);
+        Wake(b);
     }
 
     public void DeleteDot(Point point)
@@ -86,67 +95,115 @@ public class World : EntityManager
 
         Entity ent = _grid[point.X, point.Y];
         if (FreeEntity(ent))
+        {
             Particles--;
-        
+            Wake(point);
+        }
+
         _grid[point.X, point.Y] = new Entity(-1, -1);
     }
 
+    public bool IsPointSleeping(Point point)
+    {
+        Point chunkPoint = new Point(point.X / ChunkSize, point.Y / ChunkSize);
+        return _chunkUpdate[chunkPoint.X, chunkPoint.Y];
+    }
+
+    public bool IsChunkSleeping(Point point)
+    {
+        return !_chunkUpdate[point.X, point.Y];
+    }
+
+    public void Wake(Point point)
+    {
+        Span<Point> offsets =
+        [
+            new Point(0, 1), new Point(1, 1), new Point(1, 0), new Point(1, -1), new Point(0, -1), new Point(-1, -1),
+            new Point(-1, 0), new Point(-1, 1)
+        ];
+        
+        foreach (Point offset in offsets)
+        {
+            Point curPoint = point + offset;
+            Point chunkPoint = new Point(curPoint.X / ChunkSize, curPoint.Y / ChunkSize);
+            _chunkUpdate[chunkPoint.X, chunkPoint.Y] = true;
+        }
+    }
+
+    private void Sleep(Point point)
+    {
+        _chunkUpdate[point.X, point.Y] = false;
+    }
+
+    public bool IsChunkBoundary(Point point)
+    {
+        return (point.ToVector2() / ChunkSize) == point.ToVector2();
+    }
+    
     public void Update()
     {
         _nonUpdate.Clear();
         Random.Shuffle(_xOrder);
-
-        for (int xIdx = 0; xIdx < Size.X; xIdx++)
+        Random.Shuffle(_edgeOrder);
+        int xChunks = Size.X / ChunkSize + 1;
+        int yChunks = Size.Y / ChunkSize + 1;
+        
+        for (int xChunk = 0; xChunk < xChunks; xChunk++)
+        for (int yChunk = 0; yChunk < yChunks; yChunk++)
         {
-            int x = _xOrder[xIdx];
-            for (int y = 0; y < Size.Y; y++)
-            {
-                Point index = new Point(x, y);
-                DotType dt = GetComponentOrDefault<DotType>(index, Components.DotType);
-                if (dt == DotType.Empty)
-                    continue;
+            Point chunk = new(xChunk, yChunk);
+            if (IsChunkSleeping(chunk))
+                continue;
 
-                if (_nonUpdate.Contains(index))
+            Sleep(chunk);
+            int xLim = ChunkSize - Math.Max(0, (xChunk + 1) * ChunkSize - Size.X);
+            int yLim = ChunkSize - Math.Max(0, (yChunk + 1) * ChunkSize - Size.Y);
+            for (int xRel = 0; xRel < xLim; xRel++)
+            for (int yRel = 0; yRel < yLim; yRel++)
+            {
+                Point position = new Point(xChunk * ChunkSize + (xChunk == xChunks - 1 ? _edgeOrder[xRel] : _xOrder[xRel]), yChunk * ChunkSize + yRel);
+                
+                if (_nonUpdate.Contains(position))
                     continue;
                 
-                // Sand code
-                if (dt == DotType.Sand)
+                DotType dot = GetComponentOrDefault<DotType>(position, Components.DotType);
+
+                if (dot == DotType.Sand)
                 {
-                    Span<Point> targets = [new Point(0, 1), new Point(1, 1), new Point(-1, 1)];
-                    Point target = Point.Zero;
-                    bool hasTarget = false;
+                    Span<Point> targets = [new(0, 1), new(-1, 1), new(1, 1)];
                     Random.Shuffle(targets[1..]);
 
-                    foreach (Point point in targets)
+                    foreach (Point target in targets)
                     {
-                        if (!IsOpen(index + point)) 
-                            continue;
-                        
-                        hasTarget = true;
-                        target = point;
-                    }
-
-                    if (hasTarget)
-                    {
-                        SwapDots(index, index + target);
-                        _nonUpdate.Add(index + target);
+                        Point tgtPoint = target + position;
+                        if (IsOpen(tgtPoint))
+                        {
+                            SwapDots(tgtPoint, position);
+                            _nonUpdate.Add(tgtPoint);
+                            break;
+                        }
                     }
                 }
             }
         }
     }
 
-    public World(Point size)
+    public World(Point size, int chunkSize = 32)
     {
         const int BaseSize = 1024;
         Size = size;
+        ChunkSize = chunkSize;
         _grid = new Entity[size.X, size.Y];
         for (int x = 0; x < size.X; x++)
         for (int y = 0; y < size.Y; y++)
         {
             _grid[x, y] = new Entity(-1, -1);
         }
-        _xOrder = Enumerable.Range(0, size.X).ToArray();
+        _xOrder = Enumerable.Range(0, ChunkSize).ToArray();
+        _edgeOrder = Enumerable.Range(0, Size.X % ChunkSize).ToArray();
+        
+        _chunkUpdate = new bool[size.X / chunkSize + 1, size.Y / chunkSize + 1];
+        
         _componentStore = new IComponentStore[Enum.GetValues(typeof(Components)).Length];
         
         _componentStore[(int)Components.DotType] = new ComponentStore<DotType>(BaseSize, DotType.Empty);
