@@ -15,8 +15,8 @@ public class MonogameRenderer
     {
         _graphicsDevice = graphicsDevice;
         
-        int xChunks = world.Size.X / world.ChunkSize + 1;
-        int yChunks = world.Size.Y / world.ChunkSize + 1;
+        int xChunks = world.Size.X / world.ChunkSize + (world.Size.X % world.ChunkSize == 0 ? 0 : 1);
+        int yChunks = world.Size.Y / world.ChunkSize + (world.Size.Y % world.ChunkSize == 0 ? 0 : 1);
         _chunkRenderers = new ChunkRenderer[xChunks, yChunks];
         
         for (int x = 0; x < xChunks; x++)
@@ -24,24 +24,31 @@ public class MonogameRenderer
             _chunkRenderers[x, y] = new ChunkRenderer(this, world,
                 new Rectangle(x * world.ChunkSize, 
                     y * world.ChunkSize, 
-                    world.ChunkSize - Math.Max(0, (x + 1) * world.ChunkSize - world.Size.X), 
+                    world.ChunkSize - Math.Max(0, (x + 1) * world.ChunkSize - world.Size.X ),  
                     world.ChunkSize - Math.Max(0, (y + 1) * world.ChunkSize - world.Size.Y)));
     }
 
     public void Draw(SpriteBatch spriteBatch)
     {
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: Matrix.CreateScale(Scale));
-        foreach (ChunkRenderer chunkRenderer in _chunkRenderers)
+        for (var index0 = 0; index0 < _chunkRenderers.GetLength(0); index0++)
+        for (var index1 = 0; index1 < _chunkRenderers.GetLength(1); index1++)
         {
+            ref ChunkRenderer chunkRenderer = ref _chunkRenderers[index0, index1];
             spriteBatch.Draw(chunkRenderer.ChunkTexture, chunkRenderer.Bounds, Color.White);
         }
+
         spriteBatch.End();
     }
 
     public void Update()
     {
-        foreach (ChunkRenderer chunkRenderer in _chunkRenderers)
+        for (var index0 = 0; index0 < _chunkRenderers.GetLength(0); index0++)
+        for (var index1 = 0; index1 < _chunkRenderers.GetLength(1); index1++)
+        {
+            ref ChunkRenderer chunkRenderer = ref _chunkRenderers[index0, index1];
             chunkRenderer.ProcessChunk();
+        }
     }
 
 
@@ -49,10 +56,11 @@ public class MonogameRenderer
     private struct ChunkRenderer
     {
         public readonly Color[] ColorData;
-        public bool Sleeping = false;
+        private bool _sleeping = false;
         private readonly Texture2D _texture;
         private readonly World _world;
         private Rectangle _bounds;
+        private bool _updateTexture = true;
 
         public Rectangle Bounds => _bounds;
         
@@ -71,10 +79,11 @@ public class MonogameRenderer
         {
             Point chunk = new(_bounds.Location.X / _world.ChunkSize, _bounds.Location.Y / _world.ChunkSize);
             bool isProcessSleeping = _world.IsChunkSleeping(chunk);
-            if (Sleeping && isProcessSleeping)
+            if (_sleeping && isProcessSleeping)
                 return;
 
-            Sleeping = isProcessSleeping;
+            _sleeping = isProcessSleeping;
+            _updateTexture = true;
             
             
             for (int x = 0; x < _bounds.Width; x++)
@@ -89,7 +98,7 @@ public class MonogameRenderer
                 };
                 
                 if (x == 0 || y == 0 || x == _bounds.Width - 1 || y == _bounds.Height - 1)
-                    color = Color.Green;
+                    color = _sleeping ? Color.Red : Color.Green;
                 
                 ColorData[PointToIndex(x, y)] = color;
             }
@@ -99,7 +108,11 @@ public class MonogameRenderer
         {
             get
             {
-                _texture.SetData(ColorData);
+                if (_updateTexture)
+                {
+                    _updateTexture = false;
+                    _texture.SetData(ColorData);
+                }
                 return _texture;
             }
         }
