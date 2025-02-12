@@ -14,6 +14,7 @@ public class MonogameInstance : Game
     private Color[] _rawTexture = new Color[Width * Height];
     private Texture2D _texture;
     private World _world = new(new Point(Width, Height));
+    private MonogameRenderer _monogameRenderer;
     private SpriteFont _sf;
 
     private int _pen = 0;
@@ -21,8 +22,8 @@ public class MonogameInstance : Game
     private string particleCounter = "Particles:               ";
     
 
-    private const int Width = 200;
-    private const int Height = 200;
+    private const int Width = 400;
+    private const int Height = 240;
     private const int Magnification = 2;
     protected override void Draw(GameTime gameTime)
     {
@@ -42,8 +43,10 @@ public class MonogameInstance : Game
         
         GraphicsDevice.Clear(Color.CornflowerBlue);
         
+        _monogameRenderer.Draw(_spriteBatch);
+        
         _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        _spriteBatch.Draw(_texture, new Rectangle(0, 0, Width * Magnification, Height * Magnification), Color.White);
+        /*_spriteBatch.Draw(_texture, new Rectangle(0, 0, Width * Magnification, Height * Magnification), Color.White);*/
         _spriteBatch.DrawString(_sf, fpsCounter, Vector2.One, Color.White);
         _spriteBatch.DrawString(_sf, particleCounter, new Vector2(1, 30), Color.White);
         _spriteBatch.End();
@@ -93,13 +96,50 @@ public class MonogameInstance : Game
         if (keyboard.IsKeyDown(Keys.D3))
             _pen = 3;
         
-        for (int x = 0; x < _world.Size.X; x++)
+        /*for (int x = 0; x < _world.Size.X; x++)
         for (int y = 0; y < _world.Size.Y; y++)
         {
-            _rawTexture[_world.Size.X * y + x] = _world.GetComponentOrDefault<DotType>(new Point(x, y), Simulation.Components.DotType) == DotType.Sand ? Color.Yellow : Color.Black;
+            Point point = new(x, y);
+            bool update = !_world.IsPointSleeping(point);
+            
+            
+             /*Color pColor = _world.GetComponentOrDefault<DotType>(new Point(x, y), Simulation.Components.DotType) == DotType.Sand ? Color.Yellow : Color.Black;
+            _rawTexture[_world.Size.X * y + x] = pColor;
+            
+            if (!update)
+                _rawTexture[_world.Size.X * y + x] = new Color(pColor.R + 100, pColor.G, pColor.B);
+        #1#
+        }
+        
+        int xChunks = _world.Size.X / _world.ChunkSize + 1;
+        int yChunks = _world.Size.Y / _world.ChunkSize + 1;
+        
+        for (int xChunk = 0; xChunk < xChunks; xChunk++)
+        for (int yChunk = 0; yChunk < yChunks; yChunk++)
+        {
+            Point chunk = new(xChunk, yChunk);
+            if (_world.IsChunkSleeping(chunk))
+                continue;
+
+            int xLim = _world.ChunkSize - Math.Max(0, (xChunk + 1) * _world.ChunkSize - _world.Size.X);
+            int yLim = _world.ChunkSize - Math.Max(0, (yChunk + 1) * _world.ChunkSize - _world.Size.Y);
+            for (int xRel = 0; xRel < xLim; xRel++)
+            for (int yRel = 0; yRel < yLim; yRel++)
+            {
+                Point position = new Point(xChunk * _world.ChunkSize + xRel, yChunk * _world.ChunkSize + yRel);
+                DotType dot = _world.GetComponentOrDefault<DotType>(position, Simulation.Components.DotType);
+                _rawTexture[position.Y * _world.Size.X + position.X] = dot switch
+                {
+                    DotType.Sand => Color.Yellow,
+                    _ => Color.Black
+                };
+            }
         }
         
         _texture.SetData(_rawTexture);
+        */
+        
+        _monogameRenderer.Update();
         
         base.Update(gameTime);
     }
@@ -108,6 +148,9 @@ public class MonogameInstance : Game
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         IsMouseVisible = true;
+        
+        _monogameRenderer = new MonogameRenderer(_world, GraphicsDevice);
+        _monogameRenderer.Scale = 2;
         
         base.Initialize();
     }
