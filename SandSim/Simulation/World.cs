@@ -106,7 +106,7 @@ public class World : EntityManager
     public bool IsPointSleeping(Point point)
     {
         Point chunkPoint = new Point(point.X / ChunkSize, point.Y / ChunkSize);
-        return _chunkUpdate[chunkPoint.X, chunkPoint.Y];
+        return IsChunkSleeping(chunkPoint);
     }
 
     public bool IsChunkSleeping(Point point)
