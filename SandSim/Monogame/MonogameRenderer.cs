@@ -1,3 +1,5 @@
+#define MCORE
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SandSim.Simulation;
@@ -43,12 +45,23 @@ public class MonogameRenderer
 
     public void Update()
     {
+        # if MCORE
+        Parallel.For(0, _chunkRenderers.GetLength(0) * _chunkRenderers.GetLength(1), i =>
+        {
+            int x = i % _chunkRenderers.GetLength(0);
+            int y = i / _chunkRenderers.GetLength(0);
+
+            ref ChunkRenderer chunkRenderer = ref _chunkRenderers[x, y];
+            chunkRenderer.ProcessChunk();
+        });
+        # else
         for (var index0 = 0; index0 < _chunkRenderers.GetLength(0); index0++)
         for (var index1 = 0; index1 < _chunkRenderers.GetLength(1); index1++)
         {
             ref ChunkRenderer chunkRenderer = ref _chunkRenderers[index0, index1];
             chunkRenderer.ProcessChunk();
         }
+        #endif
     }
 
 

@@ -1,3 +1,6 @@
+#define MCORE
+
+using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 using SandSim.Data;
 
@@ -24,11 +27,17 @@ public class World : EntityManager
     public readonly Random Random = new();
     public readonly Point Size;
     private readonly Entity[,] _grid;
-    private readonly HashSet<Point> _nonUpdate = [];
+    //private readonly HashSet<Point> _nonUpdate = [];
+    private GridAccessLock _updateLock;
     private readonly int[] _xOrder;
     private readonly int[] _edgeOrder;
-    private readonly bool[,] _chunkUpdate;
+    private readonly Chunk[] _chunks;
+    private readonly Point _chunkGridSize;
     public readonly int ChunkSize;
+    
+    private ref Chunk GetChunk(Point chunk) => ref _chunks[chunk.Y * _chunkGridSize.X + chunk.X];
+    private bool IsValidChunk(Point chunk) => 
+        chunk is { Y: >= 0, X: >= 0 } && chunk.X < _chunkGridSize.X && chunk.Y < _chunkGridSize.Y;
     
     public bool IsOpen(Point point) => IsInBounds(point) && IsEmpty(point);
     
@@ -111,7 +120,7 @@ public class World : EntityManager
 
     public bool IsChunkSleeping(Point point)
     {
-        return !_chunkUpdate[point.X, point.Y];
+        return GetChunk(point).IsSleeping;
     }
 
     public void Wake(Point point)
@@ -126,13 +135,19 @@ public class World : EntityManager
         {
             Point curPoint = point + offset;
             Point chunkPoint = new Point(curPoint.X / ChunkSize, curPoint.Y / ChunkSize);
-            _chunkUpdate[chunkPoint.X, chunkPoint.Y] = true;
+            
+            if (!IsValidChunk(chunkPoint))
+                continue;
+            
+            ref Chunk chunk = ref GetChunk(chunkPoint);
+            chunk.IsSleeping = false;
         }
     }
 
-    private void Sleep(Point point)
+    private void SleepChunk(Point point)
     {
-        _chunkUpdate[point.X, point.Y] = false;
+        ref Chunk chunk = ref GetChunk(point);
+        chunk.IsSleeping = true;
     }
 
     public bool IsChunkBoundary(Point point)
@@ -142,71 +157,135 @@ public class World : EntityManager
     
     public void Update()
     {
-        _nonUpdate.Clear();
+        //_nonUpdate.Clear();
+        _updateLock.Clear();
         Random.Shuffle(_xOrder);
         Random.Shuffle(_edgeOrder);
-        int xChunks = Size.X / ChunkSize + 1;
-        int yChunks = Size.Y / ChunkSize + 1;
+
+        int evens = _chunks.Length / 2;
+        int odds = _chunks.Length - evens;
         
-        for (int xChunk = 0; xChunk < xChunks; xChunk++)
-        for (int yChunk = 0; yChunk < yChunks; yChunk++)
+        #if MCORE
+        Parallel.For(0, odds, i =>
         {
-            Point chunk = new(xChunk, yChunk);
-            if (IsChunkSleeping(chunk))
+            i *= 2;
+            Point chunkPos = new(i % _chunkGridSize.X, i / _chunkGridSize.X);
+            ref Chunk chunk = ref GetChunk(chunkPos);
+            
+            if (!chunk.IsSleeping)
+                chunk.Update();
+        });
+
+        Parallel.For(0, evens, i =>
+        {
+            i = i * 2 + 1;
+            Point chunkPos = new(i % _chunkGridSize.X, i / _chunkGridSize.X);
+            ref Chunk chunk = ref GetChunk(chunkPos);
+
+            if (!chunk.IsSleeping)
+                chunk.Update();
+        });
+        #else
+        
+        for (int i = 0; i < _chunks.Length; i++)
+        {
+            ref Chunk chunk = ref _chunks[i];
+            if (chunk.IsSleeping)
+                continue;
+            
+            chunk.Update();
+        }
+        
+        #endif
+
+        /*for (int x = 0; x < _chunkGridSize.X; x++)
+        for (int y = 0; y < _chunkGridSize.Y; y++)
+        {
+            ref Chunk chunk = ref GetChunk(new Point(x, y));
+            if (chunk.IsSleeping)
                 continue;
 
-            Sleep(chunk);
-            int xLim = ChunkSize - Math.Max(0, (xChunk + 1) * ChunkSize - Size.X);
-            int yLim = ChunkSize - Math.Max(0, (yChunk + 1) * ChunkSize - Size.Y);
-            for (int xRel = 0; xRel < xLim; xRel++)
-            for (int yRel = 0; yRel < yLim; yRel++)
-            {
-                Point position = new Point(xChunk * ChunkSize + (xChunk == xChunks - 1 ? _edgeOrder[xRel] : _xOrder[xRel]), yChunk * ChunkSize + yRel);
-                
-                if (_nonUpdate.Contains(position))
-                    continue;
-                
-                DotType dot = GetComponentOrDefault<DotType>(position, Components.DotType);
-
-                if (dot == DotType.Sand)
-                {
-                    Span<Point> targets = [new(0, 1), new(-1, 1), new(1, 1)];
-                    Random.Shuffle(targets[1..]);
-
-                    foreach (Point target in targets)
-                    {
-                        Point tgtPoint = target + position;
-                        if (IsOpen(tgtPoint))
-                        {
-                            SwapDots(tgtPoint, position);
-                            _nonUpdate.Add(tgtPoint);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+            chunk.Update();
+        }*/
     }
 
     public World(Point size, int chunkSize = 32)
     {
         const int BaseSize = 1024;
-        Size = size;
         ChunkSize = chunkSize;
+        
+        _xOrder = Enumerable.Range(0, ChunkSize).ToArray();
+        _edgeOrder = Enumerable.Range(0, Size.X % ChunkSize).ToArray();
+        
+        Size = size;
         _grid = new Entity[size.X, size.Y];
         for (int x = 0; x < size.X; x++)
         for (int y = 0; y < size.Y; y++)
         {
             _grid[x, y] = new Entity(-1, -1);
         }
-        _xOrder = Enumerable.Range(0, ChunkSize).ToArray();
-        _edgeOrder = Enumerable.Range(0, Size.X % ChunkSize).ToArray();
         
-        _chunkUpdate = new bool[size.X / chunkSize + 1, size.Y / chunkSize + 1];
+        int xChunks = Size.X / ChunkSize + (Size.X % ChunkSize == 0 ? 0 : 1);
+        int yChunks = Size.Y / ChunkSize + (Size.Y % ChunkSize == 0 ? 0 : 1);
+        _chunkGridSize = new(xChunks, yChunks);
+        _chunks = new Chunk[xChunks * yChunks];
+        
+        for (int x = 0; x < xChunks; x++)
+        for (int y = 0; y < yChunks; y++)
+            _chunks[y * _chunkGridSize.X + x] = new Chunk(this, (Size.X % chunkSize != 0 && x == xChunks - 1) ? _edgeOrder : _xOrder,
+                new Rectangle(x * ChunkSize, 
+                    y * ChunkSize, 
+                    ChunkSize - Math.Max(0, (x + 1) * ChunkSize - Size.X ),  
+                    ChunkSize - Math.Max(0, (y + 1) * ChunkSize - Size.Y)));
+        
         
         _componentStore = new IComponentStore[Enum.GetValues(typeof(Components)).Length];
         
         _componentStore[(int)Components.DotType] = new ComponentStore<DotType>(BaseSize, DotType.Empty);
+
+        _updateLock = new GridAccessLock(Size);
+    }
+
+    private struct Chunk(World world, int[] xOrder, Rectangle bounds)
+    {
+        public readonly Rectangle Bounds = bounds;
+        public bool IsSleeping = true;
+
+        public void Update()
+        {
+            IsSleeping = true;
+
+            for (int xIdx = 0; xIdx < Bounds.Width; xIdx++)
+            {
+                int x = xOrder[xIdx];
+                for (int y = 0; y < Bounds.Height; y++)
+                {
+                    Point absPos = new Point(Bounds.X + x, Bounds.Y + y);
+
+                    if (world._updateLock.IsLocked(absPos))
+                        continue;
+
+                    DotType dot = world.GetComponentOrDefault<DotType>(absPos, Components.DotType);
+
+                    if (dot == DotType.Sand)
+                    {
+                        Span<Point> targets = [new(0, 1), new(-1, 1), new(1, 1)];
+                        world.Random.Shuffle(targets[1..]);
+
+                        foreach (Point target in targets)
+                        {
+                            Point tgtPoint = target + absPos;
+                            if (world.IsOpen(tgtPoint))
+                            {
+                                world.SwapDots(tgtPoint, absPos);
+                                world._updateLock.TryLock(tgtPoint);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
