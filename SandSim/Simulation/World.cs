@@ -1,6 +1,5 @@
 #define MCORE
 
-using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 using SandSim.Data;
 
@@ -18,7 +17,7 @@ public class World : EntityManager
     public void SetComponent<T>(Point point, Components component, T value) => 
         SetComponent(GetDot(point), (int)component, value);
 
-    public bool HasComponent<T>(Point point, Components component) => HasComponent<T>(GetDot(point), (int)component);
+    public bool HasComponent(Point point, Components component) => HasComponent(GetDot(point), (int)component);
     
     public void AddComponent<T>(Point point, Components component, T value) =>
         AllocateComponent(GetDot(point), (int)component, value);
@@ -34,10 +33,13 @@ public class World : EntityManager
     private readonly Chunk[] _chunks;
     private readonly Point _chunkGridSize;
     public readonly int ChunkSize;
+
     
     private ref Chunk GetChunk(Point chunk) => ref _chunks[chunk.Y * _chunkGridSize.X + chunk.X];
     private bool IsValidChunk(Point chunk) => 
         chunk is { Y: >= 0, X: >= 0 } && chunk.X < _chunkGridSize.X && chunk.Y < _chunkGridSize.Y;
+
+    public void LockUpdates(Point dot) => _updateLock.TryLock(dot);
     
     public bool IsOpen(Point point) => IsInBounds(point) && IsEmpty(point);
     
@@ -263,7 +265,12 @@ public class World : EntityManager
                     Point absPos = new Point(Bounds.X + x, Bounds.Y + y);
 
                     if (world._updateLock.IsLocked(absPos))
+                    {
+                        // In the event that an update locked here means a dot came here from another chunk, so we don't sleep
+                        IsSleeping = false;
                         continue;
+                    }
+                    
 
                     DotType dot = world.GetComponentOrDefault<DotType>(absPos, Components.DotType);
 
