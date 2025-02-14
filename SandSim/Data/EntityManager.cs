@@ -63,7 +63,7 @@ public abstract class EntityManager
         componentStore.SetComponent(ent.Id, value);
     }
 
-    public bool HasComponent<T>(Entity ent, int componentIndex)
+    public bool HasComponent(Entity ent, int componentIndex)
     {
 
         IComponentStore componentStore = ComponentStore[componentIndex];
