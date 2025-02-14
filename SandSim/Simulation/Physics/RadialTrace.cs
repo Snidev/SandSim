@@ -31,14 +31,14 @@ public struct RadialTrace(World world, Point origin, int radius)
         };
     }
 
-    public DotType Step()
+    public TraceStep Step()
     {
         if (Finished)
-            return DotType.Empty;
+            return new TraceStep {Valid = false};
 
         double sqDist = Math.Round(Math.Pow(_trace.CurPosition.X - Origin.X, 2) + Math.Pow(_trace.CurPosition.Y - Origin.Y, 2));
         
-        DotType result = _trace.Step();
+        TraceStep result = _trace.Step();
         CurPosition = _trace.CurPosition;
 
         if (sqDist > _sqRadius || _trace.Finished)
