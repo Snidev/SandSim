@@ -14,7 +14,7 @@ public struct LinearTrace
     public Point CurPosition { get; private set; }
     public int StepCount { get; private set; }
     private bool _finished = false;
-    public bool Finished => Origin == Destination || _finished;
+    public bool Finished => _finished;
 
     private int _error;
     private Point _delta;
@@ -45,15 +45,13 @@ public struct LinearTrace
         }
     }
     
-    public DotType Step()
+    public TraceStep Step()
     {
-        
-        
         if (Finished)
-            return DotType.Empty;
+            return new TraceStep { Valid = false };
         
+        Point start = CurPosition;
         int e2 = _error * 2;
-        Span<double> dist = [1, Sqrt2];
 
         if (e2 > -_delta.Y)
         {
@@ -67,11 +65,17 @@ public struct LinearTrace
             CurPosition += new Point(0, _step.Y);
         }
         
-        if (CurPosition == Destination)
+        if (CurPosition == Destination || !World.IsInBounds(NextStep))
             _finished = true;
 
         StepCount++;
-        return World.GetComponentOrDefault<DotType>(CurPosition, Components.DotType);
+        return new TraceStep
+        {
+            Valid = true,
+            TracePoint = start,
+            HitPoint = CurPosition,
+            HitNormal = (start - CurPosition).ToVector2(),
+        };
     }
 
     private static (Point delta, Point step) CalcVars(Point origin, Point destination)
@@ -90,6 +94,9 @@ public struct LinearTrace
         (_delta, _step) = CalcVars(origin, destination);
         World = world;
         _error = _delta.X - _delta.Y;
+        
+        if (Origin == Destination || !World.IsInBounds(NextStep))
+            _finished = true;
     }
 
     public LinearTrace(World world, Point origin, double theta, int distance)
@@ -102,5 +109,8 @@ public struct LinearTrace
         (_delta, _step) = CalcVars(origin, Destination);
         World = world;
         _error = _delta.X - _delta.Y;
+        
+        if (Origin == Destination || !World.IsInBounds(NextStep))
+            _finished = true;
     }
 }
