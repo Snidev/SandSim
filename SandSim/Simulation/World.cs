@@ -1,7 +1,10 @@
 #define MCORE
 
+using System.Reflection;
 using Microsoft.Xna.Framework;
 using SandSim.Data;
+using SandSim.Simulation.ComponentData;
+using SandSim.Simulation.System;
 
 namespace SandSim.Simulation;
 
@@ -32,6 +35,7 @@ public class World : EntityManager
     private readonly int[] _edgeOrder;
     private readonly Chunk[] _chunks;
     private readonly Point _chunkGridSize;
+    private readonly SandSystem _sandUpdate;
     public readonly int ChunkSize;
 
     
@@ -213,13 +217,14 @@ public class World : EntityManager
 
     public World(Point size, int chunkSize = 32)
     {
-        const int BaseSize = 1024;
         ChunkSize = chunkSize;
         
         _xOrder = Enumerable.Range(0, ChunkSize).ToArray();
         _edgeOrder = Enumerable.Range(0, Size.X % ChunkSize).ToArray();
         
         Size = size;
+        
+        // Todo: Unify this code and the renderchunk code to clean things up a bit
         _grid = new Entity[size.X, size.Y];
         for (int x = 0; x < size.X; x++)
         for (int y = 0; y < size.Y; y++)
@@ -239,12 +244,37 @@ public class World : EntityManager
                     y * ChunkSize, 
                     ChunkSize - Math.Max(0, (x + 1) * ChunkSize - Size.X ),  
                     ChunkSize - Math.Max(0, (y + 1) * ChunkSize - Size.Y)));
-        
-        
-        _componentStore = new IComponentStore[Enum.GetValues(typeof(Components)).Length];
-        
-        _componentStore[(int)Components.DotType] = new ComponentStore<DotType>(BaseSize, DotType.Empty);
 
+        // Reflection code for specifying component data
+        _componentStore = new IComponentStore[Enum.GetValues<Components>().Length];
+        Type[] componentTypes = Assembly.GetExecutingAssembly().GetTypes()
+            .Where(t => t.IsDefined(typeof(ComponentAttribute), false)).ToArray();
+
+        foreach (Type type in componentTypes)
+        {
+            ComponentAttribute attr = type.GetCustomAttribute<ComponentAttribute>()!;
+            int idx = (int)attr.Component;
+            if (idx >= _componentStore.Length)
+                throw new ComponentException(
+                    $"The enum values of {nameof(Components)} must be ordered({nameof(attr.Component)} = {idx})");
+
+            if (_componentStore[idx] is not null)
+                throw new ComponentException(
+                    $"Component {nameof(attr.Component)} has a duplicate structure({_componentStore[idx].GetType()} & {type})");
+
+            _componentStore[idx] =
+                (IComponentStore)Activator.CreateInstance(typeof(ComponentStore<>).MakeGenericType(type),
+                    attr.BaseAmount, attr.Default)!;
+        }
+
+        for (int i = 0; i < _componentStore.Length; i++)
+        {
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            // In this instance, if the project is configured improperly there CAN be null components, but this ensures
+            // there are none, and finalizes
+            if (_componentStore[i] is null)
+                throw new ComponentException($"Component type {(Components)i} has not been defined");
+        }
         _updateLock = new GridAccessLock(Size);
     }
 
@@ -293,6 +323,29 @@ public class World : EntityManager
                 }
             }
         }
+    }
+
+    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Enum)]
+    public class ComponentAttribute(Components component, int baseAmount, object @default) : Attribute
+    {
+        public Components Component => component;
+        public int BaseAmount => baseAmount;
+        public object Default => @default;
+    }
+}
+
+public class ComponentException : Exception
+{
+    public ComponentException()
+    {
+    }
+
+    public ComponentException(string message) : base(message)
+    {
+    }
+
+    public ComponentException(string message, Exception inner) : base(message, inner)
+    {
     }
 }
 

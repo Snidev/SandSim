@@ -2,5 +2,6 @@ namespace SandSim.Simulation;
 
 public enum Components
 {
-    DotType
+    DotType,
+    UpdateSystem
 }
