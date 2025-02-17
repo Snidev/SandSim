@@ -7,6 +7,9 @@ using SandSim.Simulation;
 
 namespace SandSim.Monogame;
 
+using MGPoint = Microsoft.Xna.Framework.Point;
+using Point = Data.Point;
+
 public class MonogameInstance : Game
 {
     private GraphicsDeviceManager _gdm;
@@ -22,9 +25,9 @@ public class MonogameInstance : Game
     private string particleCounter = "Particles:               ";
     
 
-    private const int Width = 400;
-    private const int Height = 240;
-    private const int Magnification = 2;
+    private const int Width = 800;
+    private const int Height = 480;
+    private const int Magnification = 1;
     protected override void Draw(GameTime gameTime)
     {
         Span<char> fpsCtr = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<char>(fpsCounter.GetPinnableReference()),
@@ -58,7 +61,7 @@ public class MonogameInstance : Game
     {
         _world.Update();
 
-        int brushSize = 8;
+        int brushSize = 32;
         MouseState mouse = Mouse.GetState();
         if (mouse.LeftButton == ButtonState.Pressed)
         {
@@ -79,7 +82,9 @@ public class MonogameInstance : Game
                         if (newDot == DotType.Empty)
                             _world.DeleteDot(bPoint);
                         else if (_world.IsOpen(bPoint))
+                        {
                             _world.AddDot(newDot, bPoint);
+                        }
                     }
                 }
             }
@@ -150,7 +155,7 @@ public class MonogameInstance : Game
         IsMouseVisible = true;
         
         _monogameRenderer = new MonogameRenderer(_world, GraphicsDevice);
-        _monogameRenderer.Scale = 2;
+        _monogameRenderer.Scale = Magnification;
         
         base.Initialize();
     }

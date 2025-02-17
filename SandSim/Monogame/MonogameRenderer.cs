@@ -4,6 +4,11 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SandSim.Simulation;
 
+using Point = SandSim.Data.Point;
+using Rectangle = SandSim.Data.Rectangle;
+using MGPoint = Microsoft.Xna.Framework.Point;
+using MGRect = Microsoft.Xna.Framework.Rectangle;
+
 namespace SandSim.Monogame;
 
 public class MonogameRenderer
@@ -37,7 +42,8 @@ public class MonogameRenderer
         for (var index1 = 0; index1 < _chunkRenderers.GetLength(1); index1++)
         {
             ref ChunkRenderer chunkRenderer = ref _chunkRenderers[index0, index1];
-            spriteBatch.Draw(chunkRenderer.ChunkTexture, chunkRenderer.Bounds, Color.White);
+            MGRect rect = new MGRect(chunkRenderer.Bounds.X, chunkRenderer.Bounds.Y, chunkRenderer.Bounds.Width, chunkRenderer.Bounds.Height);
+            spriteBatch.Draw(chunkRenderer.ChunkTexture, rect, Color.White);
         }
 
         spriteBatch.End();

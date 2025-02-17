@@ -1,6 +1,5 @@
 #define MCORE
 
-using Microsoft.Xna.Framework;
 using SandSim.Data;
 
 namespace SandSim.Simulation;
@@ -154,7 +153,7 @@ public class World : EntityManager
 
     public bool IsChunkBoundary(Point point)
     {
-        return (point.ToVector2() / ChunkSize) == point.ToVector2();
+        return (point.Vector / ChunkSize) == point.Vector;
     }
     
     public void Update()
