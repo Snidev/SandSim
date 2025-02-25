@@ -3,6 +3,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SandSim.Simulation;
+using SandSim.Simulation.ComponentData;
 
 namespace SandSim.Monogame;
 
@@ -104,11 +105,8 @@ public class MonogameRenderer
             {
                 Point global = _bounds.Location + new Point(x, y);
 
-                Color color = _world.GetComponentOrDefault<DotType>(global, Components.DotType) switch
-                {
-                    DotType.Sand => Color.Yellow,
-                    _ => Color.Black,
-                };
+                _world.GetComponentOrDefault(global, Components.ColorData, out ColorData col);
+                Color color = col.Color;
                 
                 if (x == 0 || y == 0 || x == _bounds.Width - 1 || y == _bounds.Height - 1)
                     color = _sleeping ? Color.Red : Color.Green;

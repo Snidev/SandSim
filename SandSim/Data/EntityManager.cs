@@ -41,15 +41,18 @@ public abstract class EntityManager
         return true;
     }
 
-    protected T? GetComponentOrDefault<T>(Entity ent, int componentIndex)
+    protected bool GetComponentOrDefault<T>(Entity ent, int componentIndex, out T? component)
     {
         ComponentStore<T> componentStore = (ComponentStore[componentIndex] as ComponentStore<T>)!;
         Entity validInstance = GetEntity(ent.Id);
 
         if (validInstance == new Entity(-1, -1) || ent != validInstance)
-            return componentStore.Default;
+        {
+            component = componentStore.Default;
+            return false;
+        }
         
-        return componentStore.GetComponentOrDefault(ent.Id);
+        return componentStore.GetComponentOrDefault(ent.Id, out component);
     }
 
     protected void SetComponent<T>(Entity ent, int componentIndex, T? value)
@@ -78,13 +81,19 @@ public abstract class EntityManager
     public void AllocateComponent<T>(Entity ent, int componentIndex, T? value)
     {
         IComponentStore componentStore = ComponentStore[componentIndex];
+        AllocateComponent(ent, componentIndex);
+        (componentStore as ComponentStore<T>).SetComponent(ent.Id, value);
+    }
+
+    public void AllocateComponent(Entity ent, int componentIndex)
+    {
+        IComponentStore componentStore = ComponentStore[componentIndex];
 
         Entity validInstance = GetEntity(ent.Id);
         if (validInstance == new Entity(-1, -1) || ent != validInstance)
             return;
 
         componentStore.Add(ent.Id);
-        (componentStore as ComponentStore<T>).SetComponent(ent.Id, value);
     }
 
     public void FreeComponent<T>(Entity ent, int componentIndex, T value)

@@ -25,12 +25,16 @@ public class ComponentStore<T>(int initialMax, T? @default = default) : ICompone
         return _dense[_sparse[value]] == value;
     }
 
-    public T? GetComponentOrDefault(int entity)
+    public bool GetComponentOrDefault(int entity, out T? component)
     {
         if (!Contains(entity))
-            return @default;
+        {
+            component = @default;
+            return false;
+        }
         
-        return _components[_sparse[entity]];
+        component = _components[_sparse[entity]];
+        return true;
     }
 
     public void SetComponent(int entity, T? component)
