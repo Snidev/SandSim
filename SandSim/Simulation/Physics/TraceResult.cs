@@ -1,19 +1,16 @@
-using Microsoft.Xna.Framework;
+
+using SandSim.Data;
 
 namespace SandSim.Simulation.Physics;
 
 public readonly struct TraceStep
 {
-    private readonly Vector2 _hitNormal;
+    private readonly Vector _hitNormal;
     
     public bool Valid { get; init; }
     public Point HitPoint { get; init; }
     public Point TracePoint { get; init; }
-    public Vector2 HitNormal { get => _hitNormal;
-        init
-        {
-            value.Normalize(); 
-            _hitNormal = value;
-        }
+    public Vector HitNormal { get => _hitNormal;
+        init => _hitNormal = value.Normalized;
     }
 }

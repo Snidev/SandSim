@@ -1,4 +1,3 @@
-using Microsoft.Xna.Framework;
 using SandSim.Data;
 
 namespace SandSim.Simulation.Physics;

@@ -1,4 +1,3 @@
-using Microsoft.Xna.Framework;
 using SandSim.Data;
 
 namespace SandSim.Simulation.Physics;
@@ -74,7 +73,7 @@ public struct LinearTrace
             Valid = true,
             TracePoint = start,
             HitPoint = CurPosition,
-            HitNormal = (start - CurPosition).ToVector2(),
+            HitNormal = (start - CurPosition).Vector,
         };
     }
 
