@@ -14,8 +14,8 @@ public class World : EntityManager
     private readonly IComponentStore[] _componentStore;
     protected override IComponentStore[] ComponentStore => _componentStore;
 
-    public T? GetComponentOrDefault<T>(Point point, Components component) => 
-        GetComponentOrDefault<T>(GetDot(point), (int)component);
+    public bool GetComponentOrDefault<T>(Point point, Components component, out T? value) => 
+        GetComponentOrDefault<T>(GetDot(point), (int)component, out value);
 
     public void SetComponent<T>(Point point, Components component, T value) => 
         SetComponent(GetDot(point), (int)component, value);
@@ -35,7 +35,8 @@ public class World : EntityManager
     private readonly int[] _edgeOrder;
     private readonly Chunk[] _chunks;
     private readonly Point _chunkGridSize;
-    private readonly SandSystem _sandUpdate;
+    private readonly DynamicSolidSystem _dynamicSolidUpdate;
+    private readonly LiquidSystem _liquidUpdate;
     public readonly int ChunkSize;
 
     
@@ -54,7 +55,8 @@ public class World : EntityManager
         if (!IsInBounds(point))
             throw new OutOfWorldBoundsException();
 
-        return GetComponentOrDefault<DotType>(point, Components.DotType) == DotType.Empty;
+        Entity ent = GetDot(point);
+        return ent.Id == -1 || ent != GetEntity(ent.Id);
     }
 
     public Entity GetDot(Point point)
@@ -79,13 +81,12 @@ public class World : EntityManager
         Wake(b);
     }
 
-    public void AddDot(DotType dot, Point point)
+    public void AddDot(Point point)
     {
         if (!IsEmpty(point))
             throw new PlacementConflictException();
 
         Entity ent = AllocateEntity();
-        AllocateComponent(ent, (int)Components.DotType, dot);
         
         _grid[point.X, point.Y] = ent;
         Particles++;
@@ -223,6 +224,9 @@ public class World : EntityManager
         _edgeOrder = Enumerable.Range(0, Size.X % ChunkSize).ToArray();
         
         Size = size;
+
+        _dynamicSolidUpdate = new DynamicSolidSystem(this);
+        _liquidUpdate = new LiquidSystem(this);
         
         // Todo: Unify this code and the renderchunk code to clean things up a bit
         _grid = new Entity[size.X, size.Y];
@@ -262,9 +266,14 @@ public class World : EntityManager
                 throw new ComponentException(
                     $"Component {nameof(attr.Component)} has a duplicate structure({_componentStore[idx].GetType()} & {type})");
 
+            object? @default = attr.Default;
+
+            if (@default is null && type.IsValueType)
+                @default = Activator.CreateInstance(type);
+            
             _componentStore[idx] =
                 (IComponentStore)Activator.CreateInstance(typeof(ComponentStore<>).MakeGenericType(type),
-                    attr.BaseAmount, attr.Default)!;
+                    attr.BaseAmount, @default)!;
         }
 
         for (int i = 0; i < _componentStore.Length; i++)
@@ -301,8 +310,13 @@ public class World : EntityManager
                         continue;
                     }
                     
+                    if (world._dynamicSolidUpdate.IsApplicable(absPos))
+                        world._dynamicSolidUpdate.Update(absPos);
 
-                    DotType dot = world.GetComponentOrDefault<DotType>(absPos, Components.DotType);
+                    if (world._liquidUpdate.IsApplicable(absPos))
+                        world._liquidUpdate.Update(absPos);
+
+                    /*DotType dot = world.GetComponentOrDefault<DotType>(absPos, Components.DotType);
 
                     if (dot == DotType.Sand)
                     {
@@ -319,18 +333,18 @@ public class World : EntityManager
                                 break;
                             }
                         }
-                    }
+                    }*/
                 }
             }
         }
     }
 
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Enum)]
-    public class ComponentAttribute(Components component, int baseAmount, object @default) : Attribute
+    public class ComponentAttribute(Components component, int baseAmount=1024, object? @default=null) : Attribute
     {
         public Components Component => component;
         public int BaseAmount => baseAmount;
-        public object Default => @default;
+        public object? Default => @default;
     }
 }
 
