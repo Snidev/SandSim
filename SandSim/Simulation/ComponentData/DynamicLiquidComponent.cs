@@ -1,10 +1,10 @@
-using Microsoft.Xna.Framework;
+using SandSim.Data;
 
 namespace SandSim.Simulation.ComponentData;
 
 [World.Component(Components.DynamicLiquid)]
 public struct DynamicLiquidComponent
 {
-    public Vector2 Velocity;
+    public Vector Velocity;
     public float Density;
 }

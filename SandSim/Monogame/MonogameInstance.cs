@@ -9,6 +9,9 @@ using SandSim.Simulation.System;
 
 namespace SandSim.Monogame;
 
+using MGPoint = Microsoft.Xna.Framework.Point;
+using Point = SandSim.Data.Point;
+
 public class MonogameInstance : Game
 {
     private GraphicsDeviceManager _gdm;

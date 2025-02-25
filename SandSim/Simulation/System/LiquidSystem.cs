@@ -1,5 +1,5 @@
-using Microsoft.Xna.Framework;
 using SandSim.Simulation.ComponentData;
+using SandSim.Data;
 
 namespace SandSim.Simulation.System;
 
@@ -16,7 +16,7 @@ public class LiquidSystem(World world) : ISimulationUpdateSystem
         
         
         
-        if (dlc.Velocity == Vector2.Zero) 
+        if (dlc.Velocity == Vector.Zero) 
             return false;
 
         return false;
