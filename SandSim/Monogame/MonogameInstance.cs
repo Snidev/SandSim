@@ -4,6 +4,8 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SandSim.Simulation;
+using SandSim.Simulation.ComponentData;
+using SandSim.Simulation.System;
 
 namespace SandSim.Monogame;
 
@@ -17,14 +19,16 @@ public class MonogameInstance : Game
     private MonogameRenderer _monogameRenderer;
     private SpriteFont _sf;
 
+    private DotTemplateSystem _templates;
+
     private int _pen = 0;
     private string fpsCounter = "FPS:      ";
     private string particleCounter = "Particles:               ";
     
 
-    private const int Width = 400;
-    private const int Height = 240;
-    private const int Magnification = 2;
+    private const int Width = 800;
+    private const int Height = 480;
+    private const int Magnification = 1;
     protected override void Draw(GameTime gameTime)
     {
         Span<char> fpsCtr = MemoryMarshal.CreateSpan(ref Unsafe.AsRef<char>(fpsCounter.GetPinnableReference()),
@@ -41,7 +45,7 @@ public class MonogameInstance : Game
         for (int i = 0; i < clear.Length; i++)
             clear[i] = ' ';
         
-        GraphicsDevice.Clear(Color.CornflowerBlue);
+        GraphicsDevice.Clear(Color.Black);
         
         _monogameRenderer.Draw(_spriteBatch);
         
@@ -58,7 +62,7 @@ public class MonogameInstance : Game
     {
         _world.Update();
 
-        int brushSize = 8;
+        int brushSize = 16;
         MouseState mouse = Mouse.GetState();
         if (mouse.LeftButton == ButtonState.Pressed)
         {
@@ -70,16 +74,16 @@ public class MonogameInstance : Game
                     Point bPoint = new(localMouse.X + x, localMouse.Y + y);
                     if (_world.IsInBounds(bPoint))
                     {
-                        DotType newDot = _pen switch
+                        string? type = _pen switch
                         {
-                            1 => DotType.Sand,
-                            _ => DotType.Empty,
+                            1 => "sand",
+                            2 => "water",
+                            _ => null
                         };
-
-                        if (newDot == DotType.Empty)
+                        if (type is null)
                             _world.DeleteDot(bPoint);
-                        else if (_world.IsOpen(bPoint))
-                            _world.AddDot(newDot, bPoint);
+                        else if (_world.IsEmpty(bPoint))
+                            _templates.InstantiateFromTemplate(bPoint, type);
                     }
                 }
             }
@@ -96,51 +100,7 @@ public class MonogameInstance : Game
         if (keyboard.IsKeyDown(Keys.D3))
             _pen = 3;
         
-        /*for (int x = 0; x < _world.Size.X; x++)
-        for (int y = 0; y < _world.Size.Y; y++)
-        {
-            Point point = new(x, y);
-            bool update = !_world.IsPointSleeping(point);
-            
-            
-             /*Color pColor = _world.GetComponentOrDefault<DotType>(new Point(x, y), Simulation.Components.DotType) == DotType.Sand ? Color.Yellow : Color.Black;
-            _rawTexture[_world.Size.X * y + x] = pColor;
-            
-            if (!update)
-                _rawTexture[_world.Size.X * y + x] = new Color(pColor.R + 100, pColor.G, pColor.B);
-        #1#
-        }
-        
-        int xChunks = _world.Size.X / _world.ChunkSize + 1;
-        int yChunks = _world.Size.Y / _world.ChunkSize + 1;
-        
-        for (int xChunk = 0; xChunk < xChunks; xChunk++)
-        for (int yChunk = 0; yChunk < yChunks; yChunk++)
-        {
-            Point chunk = new(xChunk, yChunk);
-            if (_world.IsChunkSleeping(chunk))
-                continue;
-
-            int xLim = _world.ChunkSize - Math.Max(0, (xChunk + 1) * _world.ChunkSize - _world.Size.X);
-            int yLim = _world.ChunkSize - Math.Max(0, (yChunk + 1) * _world.ChunkSize - _world.Size.Y);
-            for (int xRel = 0; xRel < xLim; xRel++)
-            for (int yRel = 0; yRel < yLim; yRel++)
-            {
-                Point position = new Point(xChunk * _world.ChunkSize + xRel, yChunk * _world.ChunkSize + yRel);
-                DotType dot = _world.GetComponentOrDefault<DotType>(position, Simulation.Components.DotType);
-                _rawTexture[position.Y * _world.Size.X + position.X] = dot switch
-                {
-                    DotType.Sand => Color.Yellow,
-                    _ => Color.Black
-                };
-            }
-        }
-        
-        _texture.SetData(_rawTexture);
-        */
-        
         _monogameRenderer.Update();
-        
         base.Update(gameTime);
     }
 
@@ -150,7 +110,22 @@ public class MonogameInstance : Game
         IsMouseVisible = true;
         
         _monogameRenderer = new MonogameRenderer(_world, GraphicsDevice);
-        _monogameRenderer.Scale = 2;
+        _monogameRenderer.Scale = Magnification;
+        
+        _templates.AddTemplate("sand", (_, ent) =>
+        {
+            Span<Color> colors = [new Color(255, 200, 80), new Color(255, 220, 100), new Color(255, 210, 90)];
+
+            _world.AllocateComponent(ent, (int)Simulation.Components.ColorData,
+                new ColorData { Color = colors[_world.Random.Next(0, colors.Length)] });
+            _world.AllocateComponent(ent, (int)Simulation.Components.DynamicSolid);
+        });
+        
+        _templates.AddTemplate("water", (_, ent) =>
+        {
+            _world.AllocateComponent(ent, (int)Simulation.Components.ColorData, new ColorData {Color = Color.CornflowerBlue});
+            _world.AllocateComponent(ent, (int)Simulation.Components.DynamicLiquid);
+        });
         
         base.Initialize();
     }
@@ -172,5 +147,6 @@ public class MonogameInstance : Game
         InactiveSleepTime = TimeSpan.Zero;
         _gdm.SynchronizeWithVerticalRetrace = false;
         _gdm.ApplyChanges();
+        _templates = new DotTemplateSystem(_world);
     }
 }

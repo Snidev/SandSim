@@ -2,6 +2,7 @@ namespace SandSim.Simulation;
 
 public enum Components
 {
-    DotType,
-    UpdateSystem
+    ColorData,
+    DynamicSolid,
+    DynamicLiquid
 }
